@@ -386,7 +386,7 @@ async function doLogin() {
     const assertion = await navigator.credentials.get({
       publicKey: {
         challenge:        b64ToBuffer(opts.challenge),
-        rpId:             opts.rpId,
+        rpId:             opts.rpId || window.location.hostname,
         allowCredentials: allowCreds,
         userVerification: opts.userVerification,
         timeout:          opts.timeout,
