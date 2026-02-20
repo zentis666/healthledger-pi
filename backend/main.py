@@ -272,10 +272,10 @@ async def register_begin(request: Request):
     return {
         "session_id": session_id,
         "options": {
-            "challenge": base64.b64encode(options.challenge).decode(),
+            "challenge": base64.urlsafe_b64encode(options.challenge).rstrip(b"=").decode(),
             "rp": {"id": RP_ID, "name": RP_NAME},
             "user": {
-                "id": base64.b64encode(user_handle).decode(),
+                "id": base64.urlsafe_b64encode(user_handle).rstrip(b"=").decode(),
                 "name": username,
                 "displayName": display_name,
             },
@@ -365,7 +365,7 @@ async def login_begin(request: Request):
     return {
         "session_id": session_id,
         "options": {
-            "challenge": base64.b64encode(challenge).decode(),
+            "challenge": base64.urlsafe_b64encode(challenge).rstrip(b"=").decode(),
             "timeout": 60000,
             "rpId": RP_ID,
             "allowCredentials": [
