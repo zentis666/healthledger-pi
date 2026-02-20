@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HealthLedger">
+<meta name="theme-color" content="#0a0f1e">
+<title>🏥 HealthLedger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2235;--border:#1e2d47;
+  --green:#34d399;--green-dim:#10b981;--green-glow:rgba(52,211,153,.12);
+  --red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;
+  --text:#e2e8f0;--text-dim:#64748b;--text-mid:#94a3b8;
+  --sans:'DM Sans',system-ui,sans-serif;--mono:'DM Mono',monospace;
+  --r:12px;--r-sm:8px;--nav:60px;--safe:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#app{display:flex;flex-direction:column;height:100dvh}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:var(--nav);background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;padding-top:env(safe-area-inset-top,0)}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:15px;font-weight:500}
+.logo-icon{font-size:20px}
+.logo-pulse{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#version-badge{font-family:var(--mono);font-size:10px;color:var(--text-dim);background:var(--bg3);padding:3px 8px;border-radius:4px;border:1px solid var(--border)}
+#content{flex:1;overflow:hidden;position:relative}
+.view{position:absolute;inset:0;overflow-y:auto;display:none;padding:16px;padding-bottom:calc(var(--nav) + var(--safe) + 16px)}
+.view.active{display:block}
+#nav{display:flex;height:calc(var(--nav) + var(--safe));padding-bottom:var(--safe);background:var(--bg2);border-top:1px solid var(--border);flex-shrink:0}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;border:none;background:none;color:var(--text-dim);font-family:var(--sans);font-size:9px;letter-spacing:.02em;-webkit-tap-highlight-color:transparent;transition:color .2s}
+.nb svg{width:20px;height:20px;stroke-width:1.5}
+.nb.active{color:var(--green)}
+.nb.upload-btn{position:relative;top:-10px}
+.upload-ring{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--green-dim));display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(52,211,153,.4);color:var(--bg)}
+/* SECTION TITLES */
+.sec{font-size:10px;color:var(--text-dim);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;margin:20px 0 10px;display:flex;align-items:center;justify-content:space-between}
+.sec:first-child{margin-top:0}
+.sec-action{font-size:11px;color:var(--green);cursor:pointer;text-transform:none;letter-spacing:normal}
+/* CARDS */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.card:hover{border-color:var(--border)}
+/* PERSON CARD */
+.person-card{display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .2s}
+.person-card:hover{border-color:var(--green-dim)}
+.avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:var(--bg2);border:2px solid var(--border)}
+.avatar.sven{background:rgba(96,165,250,.15);border-color:var(--blue)}
+.avatar.heidi{background:rgba(167,139,250,.15);border-color:var(--purple)}
+.avatar.julian{background:rgba(52,211,153,.15);border-color:var(--green)}
+.avatar.theresa{background:rgba(251,191,36,.15);border-color:var(--amber)}
+.person-info{flex:1}
+.person-name{font-size:15px;font-weight:500}
+.person-meta{font-size:11px;color:var(--text-dim);margin-top:3px}
+.person-badges{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.badge{font-size:10px;font-family:var(--mono);padding:2px 7px;border-radius:4px}
+.badge-blue{background:rgba(96,165,250,.15);color:var(--blue)}
+.badge-green{background:rgba(52,211,153,.15);color:var(--green)}
+.badge-amber{background:rgba(251,191,36,.15);color:var(--amber)}
+.badge-red{background:rgba(248,113,113,.15);color:var(--red)}
+/* STAT GRID */
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.stat{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
+.stat .sv{font-size:28px;font-family:var(--mono);font-weight:500}
+.stat .sk{font-size:11px;color:var(--text-dim);margin-top:4px}
+/* TIMELINE ITEMS */
+.titem{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
+.titem:last-child{border-bottom:none}
+.ticon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:var(--bg2)}
+.tbody{flex:1;min-width:0}
+.ttitle{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tmeta{font-size:11px;color:var(--text-dim);margin-top:2px}
+.tamt{font-family:var(--mono);font-size:13px;color:var(--green);flex-shrink:0}
+/* MEDIKAMENT ITEM */
+.med-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);margin-bottom:7px}
+.med-icon{font-size:20px;flex-shrink:0}
+.med-info{flex:1}
+.med-name{font-size:13px;font-weight:500}
+.med-meta{font-size:11px;color:var(--text-dim);margin-top:2px}
+.med-badge{font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:3px;background:rgba(52,211,153,.1);color:var(--green)}
+.med-del{background:none;border:none;color:var(--text-dim);cursor:pointer;padding:4px;border-radius:4px;-webkit-tap-highlight-color:transparent}
+.med-del:hover{color:var(--red)}
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:40px 24px;text-align:center;cursor:pointer;transition:all .25s;background:var(--bg2);position:relative;overflow:hidden}
+.upload-zone::before{content:'';position:absolute;inset:0;background:var(--green-glow);opacity:0;transition:opacity .25s}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--green-dim)}
+.upload-zone:hover::before,.upload-zone.drag-over::before{opacity:1}
+.uz-ico{font-size:44px;margin-bottom:12px}
+.uz-h{font-size:15px;font-weight:500;margin-bottom:6px}
+.uz-p{font-size:12px;color:var(--text-dim)}
+.uz-priv{margin-top:12px;font-size:11px;color:var(--green-dim);font-family:var(--mono)}
+.ua-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.ua-btn{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;font-family:var(--sans);color:var(--text);font-size:13px;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.ua-btn svg{width:24px;height:24px;color:var(--green)}
+.ua-btn:hover{border-color:var(--green-dim);background:var(--green-glow)}
+/* PERSON CHIPS */
+.chip-row{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+.chip{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text-mid);font-size:12px;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.chip.sel{border-color:var(--green-dim);background:var(--green-glow);color:var(--green)}
+/* PROGRESS */
+.progress-wrap{display:none;margin-top:14px}
+.progress-wrap.show{display:block}
+.prog-bar-o{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:7px}
+.prog-bar-i{height:100%;background:var(--green);border-radius:2px;width:0;transition:width .3s}
+.prog-text{font-size:11px;color:var(--text-dim);font-family:var(--mono)}
+/* MODAL */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);display:none;z-index:100;align-items:flex-end}
+#modal.open{display:flex}
+#modal-sheet{background:var(--bg2);border-radius:20px 20px 0 0;width:100%;max-height:88vh;overflow-y:auto;padding:20px;animation:slideUp .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px}
+/* FORM */
+.form-group{margin-bottom:14px}
+.form-label{font-size:11px;color:var(--text-dim);font-family:var(--mono);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;display:block}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 14px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--green-dim)}
+.form-select{appearance:none;cursor:pointer}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-primary{width:100%;padding:12px;background:var(--green-dim);color:var(--bg);border:none;border-radius:var(--r-sm);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;font-family:var(--sans)}
+.btn-primary:hover{background:var(--green)}
+.btn-sec{padding:8px 16px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:var(--r-sm);font-size:13px;cursor:pointer;font-family:var(--sans)}
+/* TABS */
+.tab-row{display:flex;gap:0;background:var(--bg2);border-radius:var(--r);padding:3px;margin-bottom:16px}
+.tab-btn{flex:1;padding:7px;border:none;background:none;color:var(--text-dim);font-size:12px;cursor:pointer;border-radius:9px;transition:all .2s;font-family:var(--sans)}
+.tab-btn.active{background:var(--bg3);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+/* DOC TYPE FILTER */
+.dtype-row{display:flex;gap:7px;overflow-x:auto;margin-bottom:14px;scrollbar-width:none;padding-bottom:2px}
+.dtype-row::-webkit-scrollbar{display:none}
+.dtype{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text-mid);font-size:12px;cursor:pointer;white-space:nowrap;transition:all .2s;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.dtype.active{border-color:var(--green-dim);background:var(--green-glow);color:var(--green)}
+/* CHAT */
+#chat-view{position:absolute;inset:0;display:flex;flex-direction:column}
+#chat-msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;display:flex;flex-direction:column;gap:3px;animation:fadeUp .2s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{align-self:flex-end;align-items:flex-end}
+.msg.bot{align-self:flex-start;align-items:flex-start}
+.bubble{padding:10px 14px;border-radius:var(--r);font-size:14px;line-height:1.55;word-break:break-word}
+.msg.user .bubble{background:var(--green-dim);color:var(--bg);border-bottom-right-radius:4px}
+.msg.bot .bubble{background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:4px}
+.msg .mtime{font-size:10px;color:var(--text-dim);font-family:var(--mono)}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:var(--text-dim);animation:blink 1.2s infinite}
+.typing-dot:nth-child(2){animation-delay:.2s}.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2;transform:scale(1)}40%{opacity:1;transform:scale(1.2)}}
+#chat-bar{padding:10px 12px;padding-bottom:calc(10px + var(--safe));background:var(--bg);border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+#chat-in{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:22px;padding:10px 16px;color:var(--text);font-family:var(--sans);font-size:14px;outline:none;resize:none;max-height:100px;overflow-y:auto;line-height:1.4;transition:border-color .2s}
+#chat-in:focus{border-color:var(--green-dim)}
+#chat-in::placeholder{color:var(--text-dim)}
+.ibtn{width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.ibtn svg{width:18px;height:18px}
+#send-btn{background:var(--green-dim);color:var(--bg)}
+#send-btn:hover{background:var(--green)}
+#send-btn:disabled{background:var(--bg3);color:var(--text-dim)}
+#cam-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text-mid)}
+/* TOAST */
+#toast{position:fixed;bottom:calc(var(--nav) + 16px + var(--safe));left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg3);border:1px solid var(--border);color:var(--text);font-size:13px;padding:9px 16px;border-radius:20px;white-space:nowrap;opacity:0;transition:all .3s;pointer-events:none;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* NOTFALL BUTTON */
+.notfall-btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:12px;background:rgba(248,113,113,.1);border:1px solid var(--red);border-radius:var(--r);color:var(--red);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;width:100%}
+.notfall-btn:hover{background:rgba(248,113,113,.2)}
+/* NOTFALL CARD */
+.notfall-card{background:rgba(248,113,113,.05);border:2px solid var(--red);border-radius:var(--r);padding:16px}
+.notfall-title{color:var(--red);font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.notfall-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(248,113,113,.2)}
+.notfall-row:last-child{border:none}
+.notfall-lbl{font-size:12px;color:var(--text-dim)}
+.notfall-val{font-size:13px;font-weight:500}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="topbar">
+  <div class="logo">
+    <span class="logo-icon">🏥</span>
+    <span>HealthLedger</span>
+    <div class="logo-pulse"></div>
+  </div>
+  <div id="version-badge">v1.0</div>
+</div>
+<div id="content">
+
+  <!-- DASHBOARD -->
+  <div id="dash-view" class="view active">
+    <div id="dash-content"><div style="text-align:center;padding:40px;color:var(--text-dim)">⏳ Wird geladen…</div></div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div id="upload-view" class="view">
+    <h2 style="font-size:17px;margin-bottom:4px">Dokument hinzufügen</h2>
+    <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">KI erkennt Typ, Aussteller und Inhalt automatisch.</p>
+    <div class="upload-zone" id="drop-zone"
+      ondragover="dzOver(event)" ondragleave="dzLeave()" ondrop="dzDrop(event)"
+      onclick="document.getElementById('fi-gen').click()">
+      <div class="uz-ico">📄</div>
+      <div class="uz-h">Dokument hochladen</div>
+      <div class="uz-p">Arztbrief, Rechnung, Befund, Rezept, Impfpass…<br>PDF, JPG, PNG, HEIC</div>
+      <div class="uz-priv">🔒 Bleibt lokal auf deinem Pi — verlässt nie das Heimnetz</div>
+    </div>
+    <div class="ua-grid">
+      <button class="ua-btn" onclick="document.getElementById('fi-cam').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Kamera
+      </button>
+      <button class="ua-btn" onclick="document.getElementById('fi-gen').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+        Galerie / PDF
+      </button>
+    </div>
+    <div class="sec" style="margin-top:16px">Für Person</div>
+    <div class="chip-row" id="up-person-chips"></div>
+    <input type="file" id="fi-gen" accept="image/*,application/pdf,.heic" onchange="handleFile(this)">
+    <input type="file" id="fi-cam" accept="image/*" capture="camera" onchange="handleFile(this)">
+    <div class="progress-wrap" id="uprog">
+      <div class="prog-bar-o"><div class="prog-bar-i" id="prog-bar"></div></div>
+      <div class="prog-text" id="prog-text">Wird verarbeitet…</div>
+    </div>
+  </div>
+
+  <!-- DOKUMENTE -->
+  <div id="docs-view" class="view">
+    <div class="dtype-row">
+      <div class="dtype active" onclick="filterDok('alle',this)">Alle</div>
+      <div class="dtype" onclick="filterDok('rechnung',this)">🧾 Rechnungen</div>
+      <div class="dtype" onclick="filterDok('arztbrief',this)">📋 Arztbriefe</div>
+      <div class="dtype" onclick="filterDok('befund',this)">🔬 Befunde</div>
+      <div class="dtype" onclick="filterDok('rezept',this)">💊 Rezepte</div>
+      <div class="dtype" onclick="filterDok('impfung',this)">💉 Impfungen</div>
+    </div>
+    <div id="docs-list"><div style="text-align:center;padding:40px;color:var(--text-dim)">Keine Dokumente</div></div>
+  </div>
+
+  <!-- GESUNDHEIT (Medikamente + Messwerte) -->
+  <div id="health-view" class="view">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="healthTab('meds',this)">💊 Medikamente</button>
+      <button class="tab-btn" onclick="healthTab('values',this)">📊 Messwerte</button>
+      <button class="tab-btn" onclick="healthTab('events',this)">📅 Ereignisse</button>
+    </div>
+    <!-- Medikamente -->
+    <div id="health-meds">
+      <div class="chip-row" id="med-person-chips"></div>
+      <button class="btn-primary" style="margin-bottom:14px" onclick="openAddMed()">+ Medikament hinzufügen</button>
+      <div id="med-list"><div style="text-align:center;padding:30px;color:var(--text-dim)">Keine Medikamente</div></div>
+    </div>
+    <!-- Messwerte -->
+    <div id="health-values" style="display:none">
+      <div class="chip-row" id="val-person-chips"></div>
+      <button class="btn-primary" style="margin-bottom:14px" onclick="openAddVal()">+ Messwert eintragen</button>
+      <div id="val-list"><div style="text-align:center;padding:30px;color:var(--text-dim)">Keine Messwerte</div></div>
+    </div>
+    <!-- Ereignisse -->
+    <div id="health-events" style="display:none">
+      <div class="chip-row" id="ev-person-chips"></div>
+      <button class="btn-primary" style="margin-bottom:14px" onclick="openAddEvent()">+ Ereignis eintragen</button>
+      <div id="ev-list"><div style="text-align:center;padding:30px;color:var(--text-dim)">Keine Ereignisse</div></div>
+    </div>
+  </div>
+
+  <!-- NOTFALL -->
+  <div id="notfall-view" class="view">
+    <div class="sec">Notfall-Ausweis</div>
+    <p style="font-size:12px;color:var(--text-dim);margin-bottom:16px">
+      Wähle eine Person — der Notfall-Ausweis zeigt Blutgruppe, Allergien und Medikamente.<br>
+      QR-Code für Arzt/Rettungsdienst.
+    </p>
+    <div class="chip-row" id="notfall-person-chips"></div>
+    <div id="notfall-content"><div style="text-align:center;padding:40px;color:var(--text-dim)">Person auswählen</div></div>
+  </div>
+
+  <!-- CHAT -->
+  <div id="chat-view">
+    <div id="chat-msgs">
+      <div class="msg bot">
+        <div class="bubble">👋 Hallo! Ich bin dein HealthLedger Assistent.<br><br>
+        Ich helfe dir bei Fragen zu Medikamenten, Versicherungen und deinen gespeicherten Gesundheitsdaten.<br><br>
+        <em style="color:var(--text-dim);font-size:12px">⚕️ Kein Arzt-Ersatz — bei medizinischen Beschwerden bitte Arzt konsultieren.</em></div>
+        <div class="mtime">jetzt</div>
+      </div>
+    </div>
+    <div id="chat-bar">
+      <button class="ibtn" id="cam-btn" onclick="document.getElementById('fi-gen').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+      <textarea id="chat-in" placeholder="Frage stellen…" rows="1" onkeydown="chatKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="ibtn" id="send-btn" onclick="sendChat()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div><!-- /content -->
+<nav id="nav">
+  <button class="nb active" onclick="sw('dash',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Übersicht
+  </button>
+  <button class="nb upload-btn" onclick="sw('upload',this)">
+    <div class="upload-ring">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+    </div>
+    Upload
+  </button>
+  <button class="nb" onclick="sw('docs',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Dokumente
+  </button>
+  <button class="nb" onclick="sw('health',this);loadHealth()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+    Gesundheit
+  </button>
+  <button class="nb" onclick="sw('notfall',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    Notfall
+  </button>
+  <button class="nb" onclick="sw('chat',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    KI-Hilfe
+  </button>
+</nav>
+</div><!-- /app -->
+<!-- MODAL -->
+<div id="modal" onclick="closeModal()"><div id="modal-sheet" onclick="event.stopPropagation()"><div class="modal-handle"></div><div id="modal-body"></div></div></div>
+<!-- TOAST -->
+<div id="toast"></div>
+<script>
+// ── CONST ────────────────────────────────────────────────
+const DOK_ICONS={rechnung:'🧾',arztbrief:'📋',befund:'🔬',rezept:'💊',impfung:'💉',sonstiges:'📄'};
+const DOK_LABELS={rechnung:'Rechnung',arztbrief:'Arztbrief',befund:'Befund',rezept:'Rezept',impfung:'Impfung',sonstiges:'Sonstiges'};
+const PERSON_COLORS={sven:'sven',heidi:'heidi',julian:'julian',theresa:'theresa'};
+const PERSON_EMOJIS={sven:'👨',heidi:'👩',julian:'👦',theresa:'👧'};
+
+let personen=[], dokumente=[], selUploadPerson='', selMedPerson='', selValPerson='', selEvPerson='', selNotfallPerson=null;
+let chatBusy=false;
+
+// ── UTILS ─────────────────────────────────────────────────
+const e=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const eur=n=>n==null?'—':new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(n);
+const fdate=s=>{if(!s)return'';try{return new Date(s).toLocaleDateString('de-DE')}catch{return s}};
+function toast(msg,d=2800){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),d)}
+
+// ── NAVIGATION ────────────────────────────────────────────
+function sw(v,btn){
+  document.getElementById('chat-view').style.display='none';
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  if(v==='chat'){document.getElementById('chat-view').style.display='flex';}
+  else{const el=document.getElementById(v+'-view');if(el)el.classList.add('active');}
+  if(btn)btn.classList.add('active');
+  if(v==='dash')loadDash();
+  if(v==='docs')loadDocs();
+  if(v==='notfall')renderNotfallChips();
+}
+
+// ── PERSONEN CHIPS ────────────────────────────────────────
+function makeChips(containerId, selVar, callback, includeAll=false){
+  const c=document.getElementById(containerId);
+  if(!c)return;
+  c.innerHTML='';
+  if(includeAll){
+    const all=document.createElement('div');
+    all.className='chip sel';
+    all.textContent='Alle';
+    all.onclick=function(){window[selVar]='';document.querySelectorAll('#'+containerId+' .chip').forEach(x=>x.classList.remove('sel'));this.classList.add('sel');callback('');};
+    c.appendChild(all);
+  }
+  personen.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='chip';
+    d.textContent=(PERSON_EMOJIS[p.name.toLowerCase()]||'👤')+' '+p.name;
+    d.onclick=function(){window[selVar]=p.name;document.querySelectorAll('#'+containerId+' .chip').forEach(x=>x.classList.remove('sel'));this.classList.add('sel');callback(p.name);};
+    c.appendChild(d);
+  });
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+async function loadDash(){
+  try{
+    const r=await fetch('/api/dashboard');
+    const d=await r.json();
+    renderDash(d);
+  }catch{document.getElementById('dash-content').innerHTML='<div style="padding:20px;color:var(--red)">⚠️ Ladefehler</div>'}
+}
+
+function renderDash(d){
+  const now=new Date();
+  let h=`<div class="stats-grid">
+    <div class="stat"><div class="sv" style="color:var(--green)">${d.dok_gesamt}</div><div class="sk">Dokumente</div></div>
+    <div class="stat"><div class="sv" style="color:var(--blue)">${d.med_gesamt}</div><div class="sk">Medikamente aktiv</div></div>
+  </div>`;
+
+  h+='<div class="sec">Familienmitglieder</div>';
+  d.personen.forEach(p=>{
+    const em=PERSON_EMOJIS[p.name.toLowerCase()]||'👤';
+    const colorClass=PERSON_COLORS[p.name.toLowerCase()]||'';
+    h+=`<div class="card person-card" onclick="showPerson(${p.id})">
+      <div class="avatar ${colorClass}">${em}</div>
+      <div class="person-info">
+        <div class="person-name">${e(p.name)}</div>
+        <div class="person-meta">${p.versicherung_name||'Keine Versicherung'} ${p.beihilfesatz>0?'· Beihilfe '+Math.round(p.beihilfesatz*100)+'%':''}</div>
+        <div class="person-badges">
+          <span class="badge badge-blue">📄 ${p.dok_count} Dok.</span>
+          <span class="badge badge-green">💊 ${p.med_count} Medik.</span>
+          ${p.blutgruppe?`<span class="badge badge-red">🩸 ${e(p.blutgruppe)}</span>`:''}
+        </div>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:16px;color:var(--text-dim)"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  });
+
+  if(d.letzte_dok.length){
+    h+='<div class="sec">Zuletzt hinzugefügt</div><div class="card" style="padding:0 14px">';
+    d.letzte_dok.forEach((dok,i)=>{
+      h+=`<div class="titem">
+        <div class="ticon">${DOK_ICONS[dok.typ]||'📄'}</div>
+        <div class="tbody">
+          <div class="ttitle">${e(dok.aussteller||'Unbekannt')}</div>
+          <div class="tmeta">${e(dok.person)} · ${DOK_LABELS[dok.typ]||dok.typ} · ${fdate(dok.datum)}</div>
+        </div>
+        ${dok.betrag?`<div class="tamt">${eur(dok.betrag)}</div>`:''}
+      </div>`;
+    });
+    h+='</div>';
+  }
+  document.getElementById('dash-content').innerHTML=h;
+}
+
+function showPerson(pid){
+  const p=personen.find(x=>x.id===pid);
+  if(!p)return;
+  const em=PERSON_EMOJIS[p.name.toLowerCase()]||'👤';
+  document.getElementById('modal-body').innerHTML=`
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="avatar ${PERSON_COLORS[p.name.toLowerCase()]||''}" style="width:54px;height:54px;font-size:24px">${em}</div>
+      <div>
+        <div style="font-size:20px;font-weight:600">${e(p.name)}</div>
+        <div style="font-size:12px;color:var(--text-dim)">${p.versicherung_name||''} ${p.versicherung_nr?'#'+p.versicherung_nr:''}</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
+      ${row('Geburtsdatum', fdate(p.geburtsdatum)||'—')}
+      ${row('Blutgruppe', p.blutgruppe||'—')}
+      ${row('Beihilfesatz', p.beihilfesatz>0?Math.round(p.beihilfesatz*100)+'%':'—')}
+      ${row('Hausarzt', p.arzt_hausarzt||'—')}
+      ${row('Notfallkontakt', p.notfallkontakt||'—')}
+      ${row('Allergien', p.allergien&&p.allergien!='[]'?JSON.parse(p.allergien||'[]').join(', '):'keine bekannt')}
+    </div>
+    <button class="btn-primary" onclick="openEditPerson(${pid});closeModal()">✏️ Bearbeiten</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function row(lbl,val){return`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-dim)">${lbl}</span><span>${e(val)}</span></div>`}
+
+function openEditPerson(pid){
+  const p=personen.find(x=>x.id===pid);
+  if(!p)return;
+  document.getElementById('modal-body').innerHTML=`
+    <h3 style="font-size:17px;margin-bottom:16px">✏️ ${e(p.name)} bearbeiten</h3>
+    <div class="form-group"><label class="form-label">Geburtsdatum</label><input class="form-input" id="ep-geb" type="date" value="${p.geburtsdatum||''}"></div>
+    <div class="form-group"><label class="form-label">Blutgruppe</label>
+      <select class="form-input form-select" id="ep-bl">
+        ${['','0+','0-','A+','A-','B+','B-','AB+','AB-'].map(v=>`<option value="${v}" ${p.blutgruppe===v?'selected':''}>${v||'Unbekannt'}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Versicherung</label><input class="form-input" id="ep-vers" type="text" value="${e(p.versicherung_name||'')}"></div>
+    <div class="form-group"><label class="form-label">Beihilfesatz (%)</label><input class="form-input" id="ep-bh" type="number" min="0" max="100" step="5" value="${Math.round((p.beihilfesatz||0)*100)}"></div>
+    <div class="form-group"><label class="form-label">Hausarzt</label><input class="form-input" id="ep-arzt" type="text" value="${e(p.arzt_hausarzt||'')}"></div>
+    <div class="form-group"><label class="form-label">Notfallkontakt</label><input class="form-input" id="ep-notfall" type="text" placeholder="Name, Tel." value="${e(p.notfallkontakt||'')}"></div>
+    <div class="form-group"><label class="form-label">Allergien (kommagetrennt)</label><input class="form-input" id="ep-allergien" type="text" placeholder="Penicillin, Latex…" value="${JSON.parse(p.allergien||'[]').join(', ')}"></div>
+    <button class="btn-primary" onclick="savePerson(${pid})">💾 Speichern</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+async function savePerson(pid){
+  const allergienRaw=document.getElementById('ep-allergien').value.trim();
+  const allergien=allergienRaw?allergienRaw.split(',').map(s=>s.trim()).filter(Boolean):[];
+  const body={
+    geburtsdatum: document.getElementById('ep-geb').value,
+    blutgruppe:   document.getElementById('ep-bl').value,
+    versicherung_name: document.getElementById('ep-vers').value,
+    beihilfesatz: parseFloat(document.getElementById('ep-bh').value)/100||0,
+    arzt_hausarzt: document.getElementById('ep-arzt').value,
+    notfallkontakt: document.getElementById('ep-notfall').value,
+    allergien: JSON.stringify(allergien)
+  };
+  try{
+    const r=await fetch('/api/personen/'+pid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){toast('✅ Gespeichert!');closeModal();await loadPersonen();loadDash();}
+    else{toast('⚠️ Fehler')}
+  }catch{toast('⚠️ Verbindungsfehler')}
+}
+
+// ── DOKUMENTE ─────────────────────────────────────────────
+async function loadDocs(person='',typ=''){
+  try{
+    let url='/api/dokumente?limit=100';
+    if(person)url+='&person='+encodeURIComponent(person);
+    if(typ)url+='&typ='+encodeURIComponent(typ);
+    const r=await fetch(url);
+    dokumente=await r.json();
+    renderDokumente(dokumente);
+  }catch{document.getElementById('docs-list').innerHTML='<div style="padding:20px;color:var(--red)">⚠️ Ladefehler</div>'}
+}
+
+function filterDok(typ,el){
+  document.querySelectorAll('.dtype').forEach(x=>x.classList.remove('active'));el.classList.add('active');
+  const list=typ==='alle'?dokumente:dokumente.filter(d=>d.typ===typ);
+  renderDokumente(list);
+}
+
+function renderDokumente(list){
+  const c=document.getElementById('docs-list');
+  if(!list||!list.length){c.innerHTML='<div style="text-align:center;padding:40px;color:var(--text-dim)">Keine Dokumente</div>';return}
+  c.innerHTML=list.map(d=>`
+    <div class="card" style="cursor:pointer;padding:12px" onclick="showDok(${d.id})">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:28px">${DOK_ICONS[d.typ]||'📄'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e(d.aussteller||'Unbekannt')}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px">${e(d.person||'')} · ${DOK_LABELS[d.typ]||d.typ} · ${fdate(d.datum)}</div>
+          ${d.beschreibung?`<div style="font-size:11px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e(d.beschreibung)}</div>`:''}
+        </div>
+        ${d.betrag?`<div style="font-family:var(--mono);font-size:13px;color:var(--green);flex-shrink:0">${eur(d.betrag)}</div>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function showDok(id){
+  const d=dokumente.find(x=>x.id===id);if(!d)return;
+  const tags=JSON.parse(d.tags||'[]');
+  document.getElementById('modal-body').innerHTML=`
+    <div style="text-align:center;font-size:48px;margin-bottom:12px">${DOK_ICONS[d.typ]||'📄'}</div>
+    <h3 style="font-size:17px;margin-bottom:4px;text-align:center">${e(d.aussteller||'Unbekannt')}</h3>
+    <div style="text-align:center;font-size:12px;color:var(--text-dim);margin-bottom:16px">${DOK_LABELS[d.typ]||d.typ}</div>
+    <div class="card" style="margin-bottom:12px">
+      ${row('Patient', d.person||'—')}
+      ${row('Datum', fdate(d.datum)||'—')}
+      ${d.betrag?row('Betrag', eur(d.betrag)):''}
+      ${d.diagnose?row('Diagnose', d.diagnose):''}
+    </div>
+    ${d.beschreibung?`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;font-size:13px;color:var(--text-mid);margin-bottom:12px;line-height:1.5">${e(d.beschreibung)}</div>`:''}
+    ${tags.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">${tags.map(t=>`<span class="badge badge-blue">${e(t)}</span>`).join('')}</div>`:''}
+    <div style="display:flex;gap:8px">
+      ${d.file_path?`<a href="/api/uploads/${e(d.file_path.split('/').pop())}" target="_blank" style="flex:1"><button class="btn-primary" style="background:var(--blue)">👁 Ansehen</button></a>`:''}
+      <button class="btn-sec" style="color:var(--red);border-color:var(--red)" onclick="delDok(${id})">🗑 Löschen</button>
+    </div>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+async function delDok(id){
+  if(!confirm('Dokument wirklich löschen?'))return;
+  try{
+    await fetch('/api/dokumente/'+id,{method:'DELETE'});
+    toast('🗑 Gelöscht');closeModal();loadDocs();loadDash();
+  }catch{toast('⚠️ Fehler')}
+}
+
+// ── UPLOAD ────────────────────────────────────────────────
+function dzOver(ev){ev.preventDefault();document.getElementById('drop-zone').classList.add('drag-over')}
+function dzLeave(){document.getElementById('drop-zone').classList.remove('drag-over')}
+function dzDrop(ev){ev.preventDefault();document.getElementById('drop-zone').classList.remove('drag-over');const f=ev.dataTransfer.files[0];if(f)doUpload(f)}
+function handleFile(input){const f=input.files[0];if(f){doUpload(f);input.value=''}}
+
+async function doUpload(file){
+  const prog=document.getElementById('uprog');
+  const bar=document.getElementById('prog-bar');
+  const txt=document.getElementById('prog-text');
+  prog.classList.add('show'); bar.style.width='20%'; txt.textContent='Hochladen…';
+
+  try{
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('person',selUploadPerson);
+    fd.append('typ','auto');
+    bar.style.width='50%'; txt.textContent='KI analysiert Dokument…';
+    const resp=await fetch('/api/upload',{method:'POST',body:fd});
+    const res=await resp.json();
+    bar.style.width='100%';
+    if(res.erfolg){
+      const ex=res.extrahiert;
+      txt.textContent='✅ '+e(ex.aussteller||'Dokument')+' gespeichert';
+      toast('✅ '+(ex.aussteller||'Dokument')+' gespeichert');
+      setTimeout(()=>{prog.classList.remove('show');bar.style.width='0'},2000);
+      loadDash(); loadDocs();
+      // Zur Dokumente-Ansicht wechseln
+      setTimeout(()=>sw('docs',document.querySelectorAll('.nb')[2]),1200);
+    }else{txt.textContent='⚠️ Fehler';toast('⚠️ Fehler beim Upload')}
+  }catch(err){
+    txt.textContent='⚠️ Fehler';
+    toast('⚠️ Verbindungsfehler');
+    setTimeout(()=>prog.classList.remove('show'),2000);
+  }
+}
+
+// ── GESUNDHEIT ─────────────────────────────────────────────
+function healthTab(tab,btn){
+  document.getElementById('health-meds').style.display=tab==='meds'?'block':'none';
+  document.getElementById('health-values').style.display=tab==='values'?'block':'none';
+  document.getElementById('health-events').style.display=tab==='events'?'block':'none';
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(tab==='meds')loadMeds();
+  if(tab==='values')loadVals();
+  if(tab==='events')loadEvents();
+}
+
+async function loadHealth(){
+  makeChips('med-person-chips','selMedPerson',()=>loadMeds(),true);
+  makeChips('val-person-chips','selValPerson',()=>loadVals(),true);
+  makeChips('ev-person-chips','selEvPerson',()=>loadEvents(),true);
+  loadMeds();
+}
+
+async function loadMeds(){
+  try{
+    let url='/api/medikamente';
+    if(selMedPerson)url+='?person='+encodeURIComponent(selMedPerson);
+    const r=await fetch(url);
+    const meds=await r.json();
+    const c=document.getElementById('med-list');
+    if(!meds.length){c.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-dim)">Keine aktiven Medikamente</div>';return}
+    c.innerHTML=meds.map(m=>`
+      <div class="med-item">
+        <div class="med-icon">💊</div>
+        <div class="med-info">
+          <div class="med-name">${e(m.name)}</div>
+          <div class="med-meta">${e(m.person)} · ${e(m.dosierung||'?')} · ${e(m.haeufigkeit||'täglich')}</div>
+          ${m.wirkstoff?`<div class="med-meta">${e(m.wirkstoff)}</div>`:''}
+        </div>
+        <span class="med-badge">${m.typ==='dauermedikation'?'dauerhaft':'Bedarf'}</span>
+        <button class="med-del" onclick="delMed(${m.id})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:16px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>`).join('');
+  }catch{document.getElementById('med-list').innerHTML='<div style="padding:20px;color:var(--red)">⚠️ Fehler</div>'}
+}
+
+function openAddMed(){
+  document.getElementById('modal-body').innerHTML=`
+    <h3 style="font-size:17px;margin-bottom:16px">💊 Medikament hinzufügen</h3>
+    <div class="form-group"><label class="form-label">Person *</label>
+      <select class="form-input form-select" id="m-person">
+        ${personen.map(p=>`<option value="${e(p.name)}">${e(p.name)}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Medikament *</label><input class="form-input" id="m-name" type="text" placeholder="z.B. Ibuprofen 400mg"></div>
+    <div class="form-group"><label class="form-label">Wirkstoff</label><input class="form-input" id="m-wirkstoff" type="text" placeholder="z.B. Ibuprofen"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Dosierung</label><input class="form-input" id="m-dos" type="text" placeholder="z.B. 1x täglich"></div>
+      <div class="form-group"><label class="form-label">Häufigkeit</label>
+        <select class="form-input form-select" id="m-hf">
+          <option value="täglich">täglich</option>
+          <option value="2x täglich">2x täglich</option>
+          <option value="wöchentlich">wöchentlich</option>
+          <option value="bei Bedarf">bei Bedarf</option>
+        </select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Typ</label>
+      <select class="form-input form-select" id="m-typ">
+        <option value="dauermedikation">Dauermedikation</option>
+        <option value="bedarfsmedikation">Bedarfsmedikation</option>
+      </select></div>
+    <div class="form-group"><label class="form-label">Notiz</label><input class="form-input" id="m-notiz" type="text" placeholder="z.B. Morgens nüchtern"></div>
+    <button class="btn-primary" onclick="saveMed()">💾 Speichern</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+async function saveMed(){
+  const body={
+    person:document.getElementById('m-person').value,
+    name:document.getElementById('m-name').value.trim(),
+    wirkstoff:document.getElementById('m-wirkstoff').value.trim(),
+    dosierung:document.getElementById('m-dos').value.trim(),
+    haeufigkeit:document.getElementById('m-hf').value,
+    typ:document.getElementById('m-typ').value,
+    notiz:document.getElementById('m-notiz').value.trim()
+  };
+  if(!body.name){toast('⚠️ Name fehlt');return}
+  try{
+    const r=await fetch('/api/medikamente',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){toast('✅ Medikament gespeichert');closeModal();loadMeds();}
+    else{toast('⚠️ Fehler')}
+  }catch{toast('⚠️ Verbindungsfehler')}
+}
+
+async function delMed(id){
+  if(!confirm('Medikament als inaktiv markieren?'))return;
+  try{await fetch('/api/medikamente/'+id,{method:'DELETE'});toast('✅ Deaktiviert');loadMeds();}
+  catch{toast('⚠️ Fehler')}
+}
+
+async function loadVals(){
+  try{
+    let url='/api/messwerte?limit=30';
+    if(selValPerson)url+='&person='+encodeURIComponent(selValPerson);
+    const r=await fetch(url);
+    const vals=await r.json();
+    const c=document.getElementById('val-list');
+    if(!vals.length){c.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-dim)">Keine Messwerte</div>';return}
+    const typen={gewicht:'⚖️',blutdruck:'❤️',blutzucker:'🩸',laborwert:'🔬',temperatur:'🌡️',puls:'💓'};
+    c.innerHTML=vals.map(v=>`
+      <div class="titem">
+        <div class="ticon">${typen[v.typ]||'📊'}</div>
+        <div class="tbody">
+          <div class="ttitle" style="text-transform:capitalize">${e(v.typ)}: <strong>${v.wert}${v.wert2?'/'+v.wert2:''} ${e(v.einheit||'')}</strong></div>
+          <div class="tmeta">${e(v.person)} · ${fdate(v.datum)} ${v.notiz?'· '+e(v.notiz):''}</div>
+        </div>
+      </div>`).join('');
+  }catch{}
+}
+
+function openAddVal(){
+  document.getElementById('modal-body').innerHTML=`
+    <h3 style="font-size:17px;margin-bottom:16px">📊 Messwert eintragen</h3>
+    <div class="form-group"><label class="form-label">Person *</label>
+      <select class="form-input form-select" id="v-person">
+        ${personen.map(p=>`<option value="${e(p.name)}">${e(p.name)}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Typ *</label>
+      <select class="form-input form-select" id="v-typ" onchange="updateUnit()">
+        <option value="gewicht">⚖️ Gewicht</option>
+        <option value="blutdruck">❤️ Blutdruck</option>
+        <option value="blutzucker">🩸 Blutzucker</option>
+        <option value="temperatur">🌡️ Temperatur</option>
+        <option value="puls">💓 Puls</option>
+        <option value="laborwert">🔬 Laborwert</option>
+      </select></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Wert *</label><input class="form-input" id="v-wert" type="number" step="0.1"></div>
+      <div class="form-group"><label class="form-label" id="v2-lbl" style="display:none">Diastolisch</label><input class="form-input" id="v-wert2" type="number" style="display:none"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Einheit</label><input class="form-input" id="v-einheit" type="text" placeholder="kg, mmHg…" value="kg"></div>
+    <div class="form-group"><label class="form-label">Datum</label><input class="form-input" id="v-datum" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+    <button class="btn-primary" onclick="saveVal()">💾 Speichern</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+function updateUnit(){
+  const typ=document.getElementById('v-typ').value;
+  const units={gewicht:'kg',blutdruck:'mmHg',blutzucker:'mg/dl',temperatur:'°C',puls:'bpm',laborwert:''};
+  document.getElementById('v-einheit').value=units[typ]||'';
+  const showBP=typ==='blutdruck';
+  document.getElementById('v-wert2').style.display=showBP?'block':'none';
+  document.getElementById('v2-lbl').style.display=showBP?'block':'none';
+}
+
+async function saveVal(){
+  const body={
+    person:document.getElementById('v-person').value,
+    typ:document.getElementById('v-typ').value,
+    wert:parseFloat(document.getElementById('v-wert').value),
+    wert2:parseFloat(document.getElementById('v-wert2').value)||null,
+    einheit:document.getElementById('v-einheit').value,
+    datum:document.getElementById('v-datum').value
+  };
+  try{
+    const r=await fetch('/api/messwerte',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){toast('✅ Messwert gespeichert');closeModal();loadVals();}
+    else{toast('⚠️ Fehler')}
+  }catch{toast('⚠️ Verbindungsfehler')}
+}
+
+async function loadEvents(){
+  try{
+    let url='/api/ereignisse?limit=30';
+    if(selEvPerson)url+='&person='+encodeURIComponent(selEvPerson);
+    const r=await fetch(url);
+    const evs=await r.json();
+    const c=document.getElementById('ev-list');
+    if(!evs.length){c.innerHTML='<div style="text-align:center;padding:30px;color:var(--text-dim)">Keine Ereignisse</div>';return}
+    const icons={arztbesuch:'🩺',krankenhausaufenthalt:'🏥',operation:'🔪',impfung:'💉',diagnose:'📋'};
+    c.innerHTML=evs.map(ev=>`
+      <div class="titem">
+        <div class="ticon">${icons[ev.typ]||'📋'}</div>
+        <div class="tbody">
+          <div class="ttitle">${e(ev.titel||ev.typ)}</div>
+          <div class="tmeta">${e(ev.person)} · ${fdate(ev.datum)} ${ev.arzt?'· Dr. '+e(ev.arzt):''} ${ev.einrichtung?'· '+e(ev.einrichtung):''}</div>
+          ${ev.notizen?`<div class="tmeta" style="margin-top:3px">${e(ev.notizen)}</div>`:''}
+        </div>
+      </div>`).join('');
+  }catch{}
+}
+
+function openAddEvent(){
+  document.getElementById('modal-body').innerHTML=`
+    <h3 style="font-size:17px;margin-bottom:16px">📅 Ereignis eintragen</h3>
+    <div class="form-group"><label class="form-label">Person *</label>
+      <select class="form-input form-select" id="ev-person">
+        ${personen.map(p=>`<option value="${e(p.name)}">${e(p.name)}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label class="form-label">Typ</label>
+      <select class="form-input form-select" id="ev-typ">
+        <option value="arztbesuch">🩺 Arztbesuch</option>
+        <option value="krankenhausaufenthalt">🏥 Krankenhausaufenthalt</option>
+        <option value="operation">🔪 Operation</option>
+        <option value="impfung">💉 Impfung</option>
+        <option value="diagnose">📋 Diagnose</option>
+      </select></div>
+    <div class="form-group"><label class="form-label">Titel *</label><input class="form-input" id="ev-titel" type="text" placeholder="z.B. Grippeschutzimpfung"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Datum</label><input class="form-input" id="ev-datum" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+      <div class="form-group"><label class="form-label">Arzt</label><input class="form-input" id="ev-arzt" type="text" placeholder="Name"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Einrichtung</label><input class="form-input" id="ev-einrichtung" type="text" placeholder="Praxis, Klinik…"></div>
+    <div class="form-group"><label class="form-label">Notizen</label><textarea class="form-input" id="ev-notizen" rows="3" placeholder="Diagnose, Ergebnis, nächster Termin…"></textarea></div>
+    <button class="btn-primary" onclick="saveEvent()">💾 Speichern</button>
+  `;
+  document.getElementById('modal').classList.add('open');
+}
+
+async function saveEvent(){
+  const body={
+    person:document.getElementById('ev-person').value,
+    typ:document.getElementById('ev-typ').value,
+    titel:document.getElementById('ev-titel').value.trim(),
+    datum:document.getElementById('ev-datum').value,
+    arzt:document.getElementById('ev-arzt').value.trim(),
+    einrichtung:document.getElementById('ev-einrichtung').value.trim(),
+    notizen:document.getElementById('ev-notizen').value.trim()
+  };
+  try{
+    const r=await fetch('/api/ereignisse',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(r.ok){toast('✅ Ereignis gespeichert');closeModal();loadEvents();}
+    else{toast('⚠️ Fehler')}
+  }catch{toast('⚠️ Verbindungsfehler')}
+}
+
+// ── NOTFALL ───────────────────────────────────────────────
+function renderNotfallChips(){
+  const c=document.getElementById('notfall-person-chips');
+  c.innerHTML='';
+  personen.forEach(p=>{
+    const d=document.createElement('div');
+    d.className='chip';
+    d.textContent=(PERSON_EMOJIS[p.name.toLowerCase()]||'👤')+' '+p.name;
+    d.onclick=function(){selNotfallPerson=p.id;document.querySelectorAll('#notfall-person-chips .chip').forEach(x=>x.classList.remove('sel'));this.classList.add('sel');loadNotfall(p.id);};
+    c.appendChild(d);
+  });
+}
+
+async function loadNotfall(pid){
+  const c=document.getElementById('notfall-content');
+  c.innerHTML='<div style="text-align:center;padding:20px">⏳ Laden…</div>';
+  try{
+    const r=await fetch('/api/notfall/'+pid);
+    const d=await r.json();
+    c.innerHTML=`
+      <div class="notfall-card" style="margin-bottom:14px">
+        <div class="notfall-title">🚨 Notfallausweis — ${e(d.name)}</div>
+        <div class="notfall-row"><span class="notfall-lbl">Geburtsdatum</span><span class="notfall-val">${fdate(d.geburtsdatum)||'—'}</span></div>
+        <div class="notfall-row"><span class="notfall-lbl">Blutgruppe</span><span class="notfall-val" style="color:var(--red);font-weight:700">${e(d.blutgruppe||'Unbekannt')}</span></div>
+        <div class="notfall-row"><span class="notfall-lbl">Allergien</span><span class="notfall-val" style="color:var(--amber)">${d.allergien&&d.allergien.length?d.allergien.join(', '):'keine bekannt'}</span></div>
+        <div class="notfall-row"><span class="notfall-lbl">Notfallkontakt</span><span class="notfall-val">${e(d.notfallkontakt||'—')}</span></div>
+        <div class="notfall-row"><span class="notfall-lbl">Hausarzt</span><span class="notfall-val">${e(d.hausarzt||'—')}</span></div>
+      </div>
+      ${d.medikamente.length?`
+        <div style="font-size:11px;color:var(--text-dim);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Aktuelle Medikamente</div>
+        ${d.medikamente.map(m=>`<div class="med-item">
+          <div class="med-icon">💊</div>
+          <div class="med-info">
+            <div class="med-name">${e(m.name)}</div>
+            <div class="med-meta">${e(m.dosierung||'?')} · ${e(m.haeufigkeit||'täglich')}</div>
+          </div>
+        </div>`).join('')}`:''}
+      <div style="margin-top:16px;padding:12px;background:var(--bg3);border-radius:var(--r-sm);font-size:11px;color:var(--text-dim);font-family:var(--mono)">
+        Generiert: ${new Date(d.generiert_am).toLocaleString('de-DE')}
+      </div>
+    `;
+  }catch{c.innerHTML='<div style="color:var(--red);padding:20px">⚠️ Fehler beim Laden</div>'}
+}
+
+// ── CHAT ──────────────────────────────────────────────────
+function chatKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat()}}
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,100)+'px'}
+
+async function sendChat(){
+  if(chatBusy)return;
+  const ci=document.getElementById('chat-in');
+  const msg=ci.value.trim();if(!msg)return;
+  ci.value='';ci.style.height='auto';
+  addMsg('user',msg);chatBusy=true;
+  document.getElementById('send-btn').disabled=true;
+  const tid=addTyping();
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+    const d=await r.json();rmTyping(tid);addMsg('bot',d.antwort);
+  }catch{rmTyping(tid);addMsg('bot','⚠️ Verbindungsfehler')}
+  chatBusy=false;document.getElementById('send-btn').disabled=false;
+}
+
+function addMsg(role,content){
+  const msgs=document.getElementById('chat-msgs');
+  const t=new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const d=document.createElement('div');d.className='msg '+role;
+  d.innerHTML=`<div class="bubble">${e(content).replace(/\n/g,'<br>')}</div><div class="mtime">${t}</div>`;
+  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+}
+function addTyping(){
+  const msgs=document.getElementById('chat-msgs'),id='ty'+Date.now();
+  const d=document.createElement('div');d.id=id;d.className='msg bot';
+  d.innerHTML='<div class="bubble" style="display:flex;gap:4px"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+  msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return id;
+}
+function rmTyping(id){document.getElementById(id)?.remove()}
+
+// ── MODAL ─────────────────────────────────────────────────
+function closeModal(){document.getElementById('modal').classList.remove('open')}
+
+// ── INIT ──────────────────────────────────────────────────
+async function loadPersonen(){
+  try{const r=await fetch('/api/personen');personen=await r.json();}catch{}
+  makeChips('up-person-chips','selUploadPerson',()=>{},{});
+}
+
+async function init(){
+  await loadPersonen();
+  loadDash();loadDocs();
+  document.getElementById('chat-view').style.display='none';
+}
+init();
+</script>
+</body>
+</html>
