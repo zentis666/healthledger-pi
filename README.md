@@ -1,107 +1,83 @@
 # 🏥 HealthLedger Pi
 
-> **Das Crypto-Wallet für deine Gesundheitsdaten.**  
-> Lokal. Verschlüsselt. Auditierbar. DSGVO-konform by design.
+> **"Democratize Health"**  
+> *Gegen Platform-Zwang. Für Gesundheits-Autonomie.*
+
+Deine Gesundheitsdaten gehören dir — nicht Google, nicht Apple, nicht deiner Krankenkasse.  
+**HealthLedger Pi** ist das Ledger Nano für deine Gesundheit: Lokal. Verschlüsselt. Auditierbar.
 
 ---
 
-## 💡 Konzept
+## 💡 Warum?
 
-Wie ein **Ledger Nano Hardware-Wallet** für Kryptowährungen — aber für deine privatesten Daten: Gesundheit.
+Die großen Plattformen wollen deine Gesundheitsdaten.  
+Apple Health, Google Fit, TK-App, Vivy — alle in der Cloud, alle auf fremden Servern.
 
-| Krypto Ledger Nano | HealthLedger Pi |
-|---|---|
-| Private Keys lokal | Gesundheitsdaten lokal |
-| Nur du hast Zugriff | Kein Cloud-Zwang |
-| Backup via Seed Phrase | Backup auf neues Gerät |
-| Selective Disclosure | Arzt-Freigabe via QR |
-| Open Source | Vollständig auditierbar |
-
-**Hardware:** Raspberry Pi 5 (8GB) + 128GB SD-Karte  
-**Philosophie:** Deine Daten gehören dir. Punkt.
-
----
-
-## 🏗️ Modularer Aufbau
+**HealthLedger dreht das um:**
 
 ```
-Phase 1 — MVP (Core)
-├── 📁 Dokumente-Safe      (Scans, OCR, KI-Extraktion)
-├── 📊 Versicherungs-Hub   (PKV, Beihilfe, alle Policen)
-├── 💊 Medikamenten-Log    (Dauermedikation, Allergien)
-└── 📅 Gesundheits-Timeline (Laborwerte, Gewicht, Events)
-
-Phase 2 — Sicherheit & Krypto
-├── 🔐 SQLCipher AES-256   (verschlüsselte Datenbank)
-├── 🔑 Age Encryption       (moderne Dokumenten-Verschlüsselung)
-├── 🔒 YubiKey Support      (Hardware-Token optional)
-└── 🔄 Restic Backup        (verschlüsselt auf NAS + Cloud)
-
-Phase 3 — Vernetzung & Sharing
-├── 📤 QR-Sharing           (selektive Arzt-Freigabe)
-├── 🏥 FHIR R4 Export       (internationaler Medizinstandard)
-├── 🔗 ePA Anbindung        (optional, DE-spezifisch)
-└── 🌐 KIM Integration      (Arzt-Kommunikation DE)
+Platform-Modell          HealthLedger Pi
+─────────────────────    ──────────────────────────
+Daten auf Firmen-Server  Daten auf deinem Pi @ home
+Vendor Lock-in           Open Source, exportierbar
+Abo-Modell               Einmalig — dein Gerät
+Datenschutz unklar       DSGVO by design, lokal
+KI = OpenAI-Cloud        KI = Ollama, lokal, privat
+Abgeschaltet 2022-2024   Läuft solange dein Pi läuft
 ```
 
 ---
 
-## 🎯 Zielgruppe
-
-- 🏛️ **Beamte mit Beihilfe** — komplexe Abrechnung, viele Dokumente
-- 💼 **PKV-Versicherte** — aufwendige Rechnungsverwaltung
-- 👨‍👩‍👧 **Familien** — Gesundheitsdaten aller Familienmitglieder zentral
-- 🏥 **Chronisch Kranke** — viele Arztbesuche, viel Papier
-
----
-
-## 🛠️ Tech Stack
+## 🏗️ Module
 
 ```
-Hardware:    Raspberry Pi 5 (8GB) + 128GB SD
-OS:          Raspberry Pi OS Lite (headless)
-Backend:     Python / FastAPI
-Datenbank:   SQLite + SQLCipher (AES-256)
-Verschlüs.:  age (https://age-encryption.org)
-Frontend:    PWA (Progressive Web App, iOS/Android)
-AI:          Ollama auf AI-NAS (lokal, kein Cloud-Zwang)
-Backup:      Restic → verschlüsselt auf NAS
-Zugang:      Tailscale VPN (von überall, sicher)
-Audit:       Vollständiges Zugriffslog
+Phase 1 — MVP (live)
+├── 📁 Dokumente-Safe      Alle Arztbriefe, Befunde, Rechnungen
+├── 📊 Versicherungs-Hub   PKV, Beihilfe, alle Policen
+├── 💊 Medikamenten-Log    Dauermedikation, Allergien, Notfall-QR
+├── 📅 Gesundheits-Timeline Laborwerte, Gewicht, Arztbesuche
+└── 🚨 Notfall-Ausweis     Blutgruppe, Allergien, Medikamente
+
+Phase 2 — Sicherheit
+├── 🔐 SQLCipher AES-256
+├── 🔑 Age Encryption
+└── 🔄 Restic Backup
+
+Phase 3 — Vernetzung
+├── 📤 QR-Arzt-Sharing
+├── 🏥 FHIR R4 Export
+└── 🔗 ePA Anbindung (opt-in)
 ```
 
 ---
 
-## 📁 Repository-Struktur
+## 🛠️ Stack
 
 ```
-healthledger-pi/
-├── docs/               # Spezifikationen, Konzepte, Roadmap
-│   ├── 01_CONCEPT.md   # Vollständiges Konzept
-│   ├── 02_SPEC.md      # Technische Spezifikation
-│   ├── 03_ROADMAP.md   # Entwicklungs-Roadmap
-│   └── 04_STATUS.md    # Aktueller Entwicklungsstand
-├── backend/            # FastAPI Backend
-├── frontend/           # PWA Interface
-├── crypto/             # Verschlüsselungs-Module
-├── scripts/            # Setup & Deployment
-└── tests/              # Tests
+Hardware:  Raspberry Pi 5 (8GB) + 128GB SD
+Backend:   Python / FastAPI
+DB:        SQLite (Phase 2: SQLCipher AES-256)
+Frontend:  PWA — läuft nativ auf iOS & Android
+KI:        Ollama (lokal, kein Cloud-Zwang)
+Zugang:    Tailscale VPN
+Audit:     Vollständiges Zugriffslog
 ```
 
 ---
 
-## 🚀 Status
+## 🚀 Quick Deploy
 
-**Phase:** 🟡 KONZEPT / SPEC  
-**Nächster Meilenstein:** MVP Backend (Phase 1 — Core Module)  
-**Basis:** Aufbau auf PiAgent (Beihilfe-Assistent) Architektur
+```bash
+mkdir -p ~/healthledger && cd ~/healthledger
+curl -fsSL https://raw.githubusercontent.com/zentis666/healthledger-pi/main/scripts/deploy.sh | bash
+```
 
 ---
 
 ## 📜 Lizenz
 
-MIT License — Open Source, auditierbar, transparent.
+MIT — Open Source. Auditierbar. Für immer.
 
 ---
 
-*HealthLedger Pi — Built with privacy-first philosophy 🔐*
+*"Democratize Health" — deine Daten, dein Pi, deine Autonomie. 🔐*
