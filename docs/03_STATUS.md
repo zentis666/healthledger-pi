@@ -1,70 +1,54 @@
-# 📊 HealthLedger Pi — Projektstatus
+# 📊 HealthLedger Pi — Status
 
-**Last Updated:** 2026-02-20 (Session 02 — MVP deployed & live!)  
-**Phase:** 🟢 MVP LIVE
+**Updated:** 2026-02-20 — v1.1 YubiKey Auth  
+**Phase:** 🟡 Auth in Deployment
 
----
+## ✅ Live
 
-## ✅ Deployment
+| Was | Details |
+|-----|---------|
+| Backend v1.0 | Pi 192.168.178.150:8086 |
+| Frontend PWA | Läuft |
+| FIDO2 Auth v1.1 | ✅ Committed — Deploy ausstehend |
 
-| Was | Status | Details |
-|-----|--------|---------|
-| Backend (FastAPI) | ✅ LIVE | Pi 192.168.178.150:8086 |
-| Frontend (PWA) | ✅ LIVE | 6 Screens, Slogan integriert |
-| Datenbank (SQLite) | ✅ LIVE | 4 Personen angelegt |
-| KI-Verbindung (Ollama) | ✅ LIVE | → AI-NAS 192.168.178.146 |
-| NAS-Storage | ✅ LIVE | /mnt/tank/family/healthledger/ |
-| GitHub Repo | ✅ PUBLIC | zentis666/healthledger-pi |
-
----
-
-## 🖥️ System
+## 🔐 Auth-Architektur
 
 ```
-Hardware:   Raspberry Pi 5 (pibeihilfe)
-IP LAN:     192.168.178.150:8086
-Tailscale:  nicht eingerichtet (TODO)
-Container:  healthledger (python:3.11-slim)
-Ollama:     http://192.168.178.146:11434
-Modelle:    qwen2.5:32b (Chat), qwen2.5vl:7b (Vision)
-Daten:      /mnt/tank/family/healthledger/data/
-Uploads:    /mnt/tank/family/healthledger/uploads/
+Setup-Flow:
+  /login.html → Name eingeben → YubiKey antippen
+  → /api/auth/register/begin → Challenge
+  → WebAuthn Create (Browser) → YubiKey Tap
+  → /api/auth/register/finish → Credential in DB
+
+Login-Flow:
+  /login.html → YubiKey antippen
+  → /api/auth/login/begin → Challenge
+  → WebAuthn Get (Browser) → YubiKey Tap
+  → /api/auth/login/finish → JWT (8h)
+  → localStorage → alle API-Calls mit Bearer Token
+
+Sicherheit:
+  ✅ Sign-Count Replay-Schutz
+  ✅ JWT HS256, 8h Gültigkeit
+  ✅ Audit-Log mit Username
+  ✅ Notfall-Endpunkt ohne Auth (Arzt/Rettung)
+  ✅ Setup-Mode nur wenn kein Key registriert
 ```
 
----
+## 🚀 Deploy-Befehl
 
-## 📱 Features MVP (live)
+```bash
+cd ~/healthledger
+curl -fsSL https://raw.githubusercontent.com/zentis666/healthledger-pi/main/backend/main.py -o main.py
+curl -fsSL https://raw.githubusercontent.com/zentis666/healthledger-pi/main/frontend/login.html -o static/login.html
+curl -fsSL https://raw.githubusercontent.com/zentis666/healthledger-pi/main/docker-compose.yml -o docker-compose.yml
+docker compose up -d --force-recreate
+```
 
-- ✅ **Dashboard** — Familienübersicht, letzte Dokumente
-- ✅ **Upload** — PDF/Foto → KI-Extraktion (Typ, Aussteller, Betrag, Diagnose)
-- ✅ **Dokumente** — Filter nach Typ, Detailansicht, Download
-- ✅ **Gesundheit** — Medikamente, Messwerte, Ereignisse/Zeitachse
-- ✅ **Notfall-Ausweis** — Blutgruppe, Allergien, Medikamente pro Person
-- ✅ **KI-Chat** — Ollama-basiert, kennt Familiendaten
+## 📋 Nächste Schritte
 
----
-
-## 🔴 Offen / Nächste Schritte
-
-- [ ] Tailscale auf Pi installieren (Fernzugang)
-- [ ] Caddy HTTPS auf Pi (für iOS PWA nötig)
-- [ ] Personen-Profile befüllen (Blutgruppe, Allergien, Hausarzt)
-- [ ] Erste echte Dokumente hochladen & testen
-- [ ] Phase 2: SQLCipher Verschlüsselung
-- [ ] Notfall-QR Code generieren (PDF/PNG)
-- [ ] Beihilfe-Modul von PiAgent integrieren
-
----
-
-## 💡 Slogan
-
-> **"Democratize Health"**  
-> Gegen Platform-Zwang. Für Gesundheits-Autonomie.
-
----
-
-## 🔗 Links
-
-- **Repo:** https://github.com/zentis666/healthledger-pi
-- **App:** http://192.168.178.150:8086 (LAN)
-- **AI-NAS Backlog:** P2-21 in zentis666/ai-nas-project
+- [ ] Deploy v1.1 auf Pi
+- [ ] YubiKey (5C am Mac) registrieren
+- [ ] Login testen
+- [ ] JWT_SECRET persistent setzen
+- [ ] Caddy HTTPS (für iOS NFC)
