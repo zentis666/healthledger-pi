@@ -264,10 +264,21 @@ function setupStep2() {
 
 // Base64 Helpers für WebAuthn
 function b64ToBuffer(b64) {
-  const bin = atob(b64.replace(/-/g,'+').replace(/_/g,'/'));
-  const buf = new Uint8Array(bin.length);
-  for (let i=0; i<bin.length; i++) buf[i] = bin.charCodeAt(i);
-  return buf.buffer;
+  // Safari-kompatibel: base64url → base64 → ArrayBuffer
+  if (!b64) return new ArrayBuffer(0);
+  // base64url zu base64
+  let s = b64.replace(/-/g, '+').replace(/_/g, '/');
+  // Padding ergänzen
+  while (s.length % 4 !== 0) s += '=';
+  try {
+    const bin = atob(s);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    return buf.buffer;
+  } catch(e) {
+    console.error('b64ToBuffer Fehler:', e, 'Input:', b64);
+    throw new Error('Base64-Dekodierung fehlgeschlagen: ' + e.message);
+  }
 }
 
 function bufferToB64(buf) {
