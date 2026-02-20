@@ -770,6 +770,168 @@ Text:\n{pdf_text}"""
     except Exception as e:
         return {"fehler": str(e), "konfidenz": "niedrig"}
 
+
+# ═══════════════════════════════════════════════════════════
+# APPLE HEALTH IMPORT
+# ═══════════════════════════════════════════════════════════
+
+@app.post("/api/import/apple-health")
+async def import_apple_health(
+    file: UploadFile = File(...),
+    person: str = Form(...),
+    dry_run: bool = Form(default=False),
+    max_per_day: int = Form(default=3),
+    user: dict = Depends(get_current_user)
+):
+    """Apple Health export.zip oder export.xml importieren"""
+    import zipfile, xml.etree.ElementTree as ET, struct
+    from collections import defaultdict
+
+    if not file.filename.endswith(('.zip', '.xml')):
+        raise HTTPException(400, "Nur .zip oder .xml Dateien erlaubt")
+
+    # Temporär speichern
+    tmp_path = UPLOAD_DIR / f"apple_health_import_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tmp"
+    async with aiofiles.open(tmp_path, 'wb') as f:
+        await f.write(await file.read())
+
+    try:
+        # Importer laden
+        import sys
+        sys.path.insert(0, str(BASE_DIR))
+
+        # Inline-Import der Kernlogik
+        HK_MAP = {
+            "HKQuantityTypeIdentifierBodyMass":          {"typ":"gewicht",    "feld":"wert",  "einheit":"kg"},
+            "HKQuantityTypeIdentifierBloodPressureSystolic": {"typ":"blutdruck","feld":"wert",  "einheit":"mmHg"},
+            "HKQuantityTypeIdentifierBloodPressureDiastolic":{"typ":"blutdruck","feld":"wert2", "einheit":"mmHg"},
+            "HKQuantityTypeIdentifierBloodGlucose":      {"typ":"blutzucker", "feld":"wert",  "einheit":"mmol/L"},
+            "HKQuantityTypeIdentifierBodyTemperature":   {"typ":"temperatur", "feld":"wert",  "einheit":"°C"},
+            "HKQuantityTypeIdentifierHeartRate":         {"typ":"puls",       "feld":"wert",  "einheit":"BPM"},
+            "HKQuantityTypeIdentifierRestingHeartRate":  {"typ":"puls",       "feld":"wert",  "einheit":"BPM"},
+            "HKQuantityTypeIdentifierOxygenSaturation":  {"typ":"laborwert",  "feld":"wert",  "einheit":"%",   "name":"SpO2"},
+            "HKQuantityTypeIdentifierBodyMassIndex":     {"typ":"laborwert",  "feld":"wert",  "einheit":"BMI", "name":"BMI"},
+            "HKQuantityTypeIdentifierBodyFatPercentage": {"typ":"laborwert",  "feld":"wert",  "einheit":"%",   "name":"Körperfett"},
+        }
+        HK_SKIP = {"HKQuantityTypeIdentifierStepCount","HKQuantityTypeIdentifierDistanceWalkingRunning",
+                   "HKQuantityTypeIdentifierActiveEnergyBurned","HKQuantityTypeIdentifierBasalEnergyBurned",
+                   "HKCategoryTypeIdentifierSleepAnalysis","HKCategoryTypeIdentifierAppleStandHour",
+                   "HKQuantityTypeIdentifierAppleExerciseTime","HKQuantityTypeIdentifierAppleStandTime",
+                   "HKQuantityTypeIdentifierFlightsClimbed","HKQuantityTypeIdentifierWalkingSpeed"}
+
+        # XML laden
+        suffix = Path(tmp_path.name).suffix if hasattr(tmp_path,'name') else str(tmp_path).split('.')[-1]
+        if str(tmp_path).endswith('.zip') or file.filename.endswith('.zip'):
+            with zipfile.ZipFile(tmp_path) as z:
+                xml_files = [f for f in z.namelist() if "export.xml" in f and "cda" not in f.lower()]
+                if not xml_files: raise HTTPException(400, "export.xml nicht in ZIP gefunden")
+                xml_data = z.read(xml_files[0])
+        else:
+            xml_data = tmp_path.read_bytes()
+
+        # DTD-Bug fix
+        if b"<!DOCTYPE" in xml_data[:2000]:
+            lines = xml_data.split(b"\n")
+            cleaned, skip = [], False
+            for line in lines:
+                if b"<!DOCTYPE" in line: skip = True
+                if skip:
+                    if b"]>" in line: skip = False
+                    continue
+                cleaned.append(line)
+            xml_data = b"\n".join(cleaned)
+
+        root = ET.fromstring(xml_data)
+
+        # Person-ID
+        with get_db() as db:
+            p = db.execute("SELECT id,name FROM personen WHERE name LIKE ?", (person+"%",)).fetchone()
+            if not p: raise HTTPException(404, f"Person '{person}' nicht gefunden")
+            person_id, person_name = p["id"], p["name"]
+
+            existing_keys = set()
+            for row in db.execute("SELECT typ,datum FROM messwerte WHERE person_id=?", (person_id,)):
+                existing_keys.add(f"{row['typ']}_{row['datum']}")
+
+        # Parse Records
+        bp_buf = defaultdict(dict)
+        records = []
+        day_counts = defaultdict(int)
+        stats = defaultdict(int)
+
+        for rec in root.iter("Record"):
+            hk = rec.get("type","")
+            if hk in HK_SKIP or hk not in HK_MAP: continue
+            m = HK_MAP[hk]
+            v = rec.get("value","")
+            u = rec.get("unit","")
+            if not v: continue
+            try: fv = float(v)
+            except: continue
+
+            dt = rec.get("startDate","")[:10]
+
+            # Einheiten-Konvertierung
+            if hk == "HKQuantityTypeIdentifierBloodGlucose" and u in ("mg/dL","mg/dl"):
+                fv = round(fv / 18.0, 1)
+            elif hk == "HKQuantityTypeIdentifierBodyTemperature" and u in ("°F","F"):
+                fv = round((fv - 32) * 5/9, 1)
+            elif hk == "HKQuantityTypeIdentifierOxygenSaturation" and fv <= 1.0:
+                fv = round(fv * 100, 1)
+            elif hk == "HKQuantityTypeIdentifierBodyFatPercentage" and fv <= 1.0:
+                fv = round(fv * 100, 1)
+
+            if "Systolic" in hk:
+                bp_buf[dt]["sys"] = int(fv)
+            elif "Diastolic" in hk:
+                bp_buf[dt]["dia"] = int(fv)
+                if "sys" in bp_buf[dt]:
+                    bp = bp_buf.pop(dt)
+                    dk = f"blutdruck_{dt}"
+                    if day_counts[dk] < max_per_day and dk not in existing_keys:
+                        records.append({"typ":"blutdruck","wert":bp["sys"],"wert2":bp["dia"],"einheit":"mmHg","datum":dt,"notiz":""})
+                        day_counts[dk] += 1
+                        stats["blutdruck"] += 1
+            else:
+                dk = f"{m['typ']}_{dt}"
+                if day_counts[dk] < max_per_day:
+                    if dk not in existing_keys:
+                        records.append({"typ":m["typ"],"wert":round(fv,2),"wert2":None,
+                                        "einheit":m["einheit"],"datum":dt,
+                                        "notiz":f"Apple Health - {m.get('name','')}"})
+                        day_counts[dk] += 1
+                        stats[m["typ"]] += 1
+                    else:
+                        stats["bereits_vorhanden"] += 1
+                else:
+                    stats["dedupliziert"] += 1
+
+        if dry_run:
+            return {"dry_run": True, "wuerde_importieren": len(records),
+                    "typen": dict(stats), "person": person_name}
+
+        # Schreiben
+        with get_db() as db:
+            for r in records:
+                db.execute("""INSERT INTO messwerte
+                    (person_id,person,typ,wert,wert2,einheit,datum,notiz) VALUES (?,?,?,?,?,?,?,?)""",
+                    (person_id,person_name,r["typ"],r["wert"],r["wert2"],r["einheit"],r["datum"],r["notiz"]))
+            db.commit()
+
+        audit("IMPORT","messwerte",person_id,
+              f"Apple Health: {len(records)} Messungen importiert", user["username"])
+
+        return {
+            "erfolg": True,
+            "importiert": len(records),
+            "person": person_name,
+            "typen": dict(stats),
+        }
+
+    finally:
+        if tmp_path.exists(): tmp_path.unlink()
+
+
 # ═══════════════════════════════════════════════════════════
 # STATIC & SPA
 # ═══════════════════════════════════════════════════════════
