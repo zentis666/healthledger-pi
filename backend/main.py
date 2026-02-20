@@ -35,7 +35,7 @@ CHAT_MODEL  = os.getenv("CHAT_MODEL",   "qwen2.5:32b")
 APP_VERSION = "1.1.0"
 
 # Auth Config
-RP_ID           = os.getenv("RP_ID", "192.168.178.150")
+RP_ID           = os.getenv("RP_ID", "pibeihilfe")
 RP_NAME         = "HealthLedger"
 JWT_SECRET      = os.getenv("JWT_SECRET", secrets.token_hex(32))
 JWT_ALGO        = "HS256"
