@@ -1,45 +1,70 @@
 # 📊 HealthLedger Pi — Projektstatus
 
-**Last Updated:** 2026-02-20 (Session 01 — Konzept & Repo-Erstellung)  
-**Phase:** 🟡 KONZEPT
+**Last Updated:** 2026-02-20 (Session 02 — MVP deployed & live!)  
+**Phase:** 🟢 MVP LIVE
 
 ---
 
-## 🎯 Aktueller Sprint
+## ✅ Deployment
 
-**Sprint 1 — Konzept & Fundament**
-
-| Task | Status | Notizen |
-|------|--------|---------|
-| Konzept ausarbeiten | ✅ DONE | 01_CONCEPT.md |
-| GitHub Repo erstellen | ✅ DONE | zentis666/healthledger-pi |
-| README | ✅ DONE | Mit Marktanalyse |
-| Roadmap | ✅ DONE | 02_ROADMAP.md |
-| Marktrecherche | 🟡 TODO | Welche Lösungen gibt es 2026? |
-| Tech Spec | 🟡 TODO | DB Schema, API-Design |
-| MVP Backend | 🔴 BLOCKED | Wartet auf Spec |
+| Was | Status | Details |
+|-----|--------|---------|
+| Backend (FastAPI) | ✅ LIVE | Pi 192.168.178.150:8086 |
+| Frontend (PWA) | ✅ LIVE | 6 Screens, Slogan integriert |
+| Datenbank (SQLite) | ✅ LIVE | 4 Personen angelegt |
+| KI-Verbindung (Ollama) | ✅ LIVE | → AI-NAS 192.168.178.146 |
+| NAS-Storage | ✅ LIVE | /mnt/tank/family/healthledger/ |
+| GitHub Repo | ✅ PUBLIC | zentis666/healthledger-pi |
 
 ---
 
-## 🔗 Repository
+## 🖥️ System
 
-**GitHub:** https://github.com/zentis666/healthledger-pi  
-**Basis-Architektur:** Aufbauend auf PiAgent (apps/piagent in ai-nas-project)
+```
+Hardware:   Raspberry Pi 5 (pibeihilfe)
+IP LAN:     192.168.178.150:8086
+Tailscale:  nicht eingerichtet (TODO)
+Container:  healthledger (python:3.11-slim)
+Ollama:     http://192.168.178.146:11434
+Modelle:    qwen2.5:32b (Chat), qwen2.5vl:7b (Vision)
+Daten:      /mnt/tank/family/healthledger/data/
+Uploads:    /mnt/tank/family/healthledger/uploads/
+```
 
 ---
 
-## 💡 Key Decisions
+## 📱 Features MVP (live)
 
-- **Stack:** Python/FastAPI + SQLite + PWA (bewährt von PiAgent)
-- **Verschlüsselung:** SQLCipher + age (Phase 2, nicht Phase 1)
-- **KI:** Ollama auf AI-NAS (kein separates Modell auf Pi nötig)
-- **Zugang:** Tailscale VPN (bereits vorhanden)
+- ✅ **Dashboard** — Familienübersicht, letzte Dokumente
+- ✅ **Upload** — PDF/Foto → KI-Extraktion (Typ, Aussteller, Betrag, Diagnose)
+- ✅ **Dokumente** — Filter nach Typ, Detailansicht, Download
+- ✅ **Gesundheit** — Medikamente, Messwerte, Ereignisse/Zeitachse
+- ✅ **Notfall-Ausweis** — Blutgruppe, Allergien, Medikamente pro Person
+- ✅ **KI-Chat** — Ollama-basiert, kennt Familiendaten
 
 ---
 
-## 📋 Nächste Schritte
+## 🔴 Offen / Nächste Schritte
 
-1. Marktrecherche: Was gibt es 2026 an Health-Apps?
-2. DB Schema designen
-3. PiAgent-Code als Basis nehmen → erweitern
-4. Phase 1 MVP starten
+- [ ] Tailscale auf Pi installieren (Fernzugang)
+- [ ] Caddy HTTPS auf Pi (für iOS PWA nötig)
+- [ ] Personen-Profile befüllen (Blutgruppe, Allergien, Hausarzt)
+- [ ] Erste echte Dokumente hochladen & testen
+- [ ] Phase 2: SQLCipher Verschlüsselung
+- [ ] Notfall-QR Code generieren (PDF/PNG)
+- [ ] Beihilfe-Modul von PiAgent integrieren
+
+---
+
+## 💡 Slogan
+
+> **"Democratize Health"**  
+> Gegen Platform-Zwang. Für Gesundheits-Autonomie.
+
+---
+
+## 🔗 Links
+
+- **Repo:** https://github.com/zentis666/healthledger-pi
+- **App:** http://192.168.178.150:8086 (LAN)
+- **AI-NAS Backlog:** P2-21 in zentis666/ai-nas-project
