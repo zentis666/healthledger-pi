@@ -368,11 +368,7 @@ async def login_begin(request: Request):
             "challenge": base64.b64encode(challenge).decode(),
             "timeout": 60000,
             "rpId": RP_ID,
-            "allowCredentials": [
-                {"type": "public-key", "id": r["credential_id"],
-                 "transports": []}  
-                for r in creds
-            ],
+            "allowCredentials": [],
             "userVerification": "preferred",
         }
     }
@@ -1074,3 +1070,76 @@ async def create_dokument(request: Request, user: dict = Depends(get_current_use
 async def spa_fallback(path: str):
     f = STATIC_DIR / "index.html"
     if f.exists(): return FileResponse(f)
+
+@app.post("/api/beihilfe/foto-analysieren")
+async def beihilfe_foto_analysieren(
+    file: UploadFile = File(...),
+    person: str = Form("Sven"),
+    user: dict = Depends(get_current_user)
+):
+    import httpx, base64, re as _re
+    
+    # Bild einlesen
+    img_bytes = await file.read()
+    img_b64 = base64.b64encode(img_bytes).decode()
+    mime = file.content_type or "image/jpeg"
+    
+    prompt = """Du analysierst eine deutsche Arztrechnung nach GOÄ (Gebührenordnung für Ärzte).
+Suche nach einer Tabelle mit Spalten wie: Ziffer, Betrag, Faktor, Leistungstext.
+Die GOÄ-Ziffern sind kurze Zahlen (1-9999).
+
+Antworte NUR mit einem JSON-Array, ohne Text davor oder danach:
+[
+  {"ziffer": "1", "anzahl": 1, "faktor": 2.3, "betrag": 10.72, "beschreibung": "Beratung"},
+  {"ziffer": "5", "anzahl": 1, "faktor": 2.3, "betrag": 10.72, "beschreibung": "Symptombezogene Untersuchung"}
+]
+
+Regeln:
+- ziffer: nur die Zahl als String (z.B. "1", "5", "70", "3561")
+- betrag: der Euro-Betrag als Dezimalzahl
+- faktor: der Multiplikationsfaktor (z.B. 2.3, 1.8, 3.5)
+- Falls keine GOÄ-Tabelle erkennbar: []"""
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={
+                    "model": VISION_MODEL,
+                    "prompt": prompt,
+                    "images": [img_b64],
+                    "stream": False,
+                    "format": "json"
+                }
+            )
+        result = resp.json()
+        raw = result.get("response", "[]")
+        
+        # JSON extrahieren
+        try:
+            positionen = _json.loads(raw)
+        except:
+            match = _re.search(r'\[.*\]', raw, _re.DOTALL)
+            positionen = _json.loads(match.group()) if match else []
+        
+        # Beihilfe berechnen
+        goae_db = _lade_goae_db()
+        with get_db() as db:
+            row = db.execute("SELECT beihilfesatz FROM personen WHERE name=?", (person,)).fetchone()
+            beihilfesatz = float(row["beihilfesatz"]) if row else 0.50
+        
+        berechnung = _berechne_erstattung(positionen, goae_db, beihilfesatz)
+        berechnung["person"] = person
+        berechnung["positionen_erkannt"] = len(positionen)
+        
+        # Warnungen
+        warnungen = berechnung.get("hinweise", [])
+        for p in positionen:
+            if str(p.get("ziffer","")) not in goae_db:
+                warnungen.append(f"⚠️ GOÄ {p.get('ziffer')} nicht in Datenbank — manuell prüfen")
+        berechnung["warnungen"] = warnungen
+        
+        return berechnung
+        
+    except Exception as e:
+        raise HTTPException(500, f"Analyse fehlgeschlagen: {str(e)}")
