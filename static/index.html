@@ -355,7 +355,11 @@ function getToken() {
 async function apiFetch(url, opts={}) {
   const token = getToken();
   const headers = {'Authorization': 'Bearer ' + token, ...(opts.headers||{})};
-  if (opts.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+  // Kein Content-Type bei FormData — Browser setzt es automatisch mit Boundary
+  if (opts.body && !(opts.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (opts.body instanceof FormData) delete headers['Content-Type'];
   const r = await fetch(url, {...opts, headers, credentials:'include'});
   if (r.status === 401) { window.location.href = '/'; return null; }
   return r;
@@ -987,7 +991,29 @@ init();
   <div id="bh-tab-analyse">
     <div class="card" style="margin-bottom:10px">
       <div style="font-size:0.8rem;color:var(--text-dim);margin-bottom:10px">
-        Rechnungstext einfügen — die KI erkennt GOÄ-Ziffern und berechnet die Erstattung automatisch.
+    <p style="color:var(--text-dim);font-size:0.85rem;margin-bottom:12px">
+      Foto hochladen oder Text einfügen — die KI erkennt GOÄ-Ziffern automatisch.
+    </p>
+    <div style="margin-bottom:12px">
+      <label style="display:flex;align-items:center;justify-content:center;gap:8px;
+                    padding:14px;background:var(--bg3);border:2px dashed var(--border);
+                    border-radius:var(--r-sm);cursor:pointer;color:var(--text-mid);font-size:0.9rem"
+             onmouseover="this.style.borderColor='var(--primary)'"
+             onmouseout="this.style.borderColor='var(--border)'">
+        📷 Rechnung fotografieren oder Bild auswählen
+        <input type="file" accept="image/*" capture="environment"
+               style="display:none" id="bh-foto-input" onchange="analysiereFoto(this)">
+      </label>
+      <div id="bh-foto-preview" style="display:none;margin-top:8px;text-align:center">
+        <img id="bh-foto-img" style="max-height:200px;border-radius:var(--r-sm);border:1px solid var(--border)">
+        <div id="bh-foto-status" style="color:var(--text-dim);font-size:0.85rem;margin-top:6px"></div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="color:var(--text-dim);font-size:0.78rem">oder manuell eingeben</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
       </div>
       <div style="margin-bottom:10px">
         <label style="font-size:0.8rem;color:var(--text-dim)">Person</label>
@@ -1066,6 +1092,50 @@ let bhPersonFilter = '';
 let bhAktuellesErgebnis = null;
 let bhLetztesGespeicherteId = null;
 
+// ═══ GERÄT HINZUFÜGEN ═══════════════════════════════════════
+async function geraetHinzufuegen() {
+  try {
+    const r = await apiFetch('/api/auth/register/begin', {method:'POST', body:JSON.stringify({})});
+    if(!r) return;
+    const d = await r.json();
+    
+    const cred = await navigator.credentials.create({publicKey: {
+      challenge: Uint8Array.from(atob(d.options.challenge.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0)),
+      rp: d.options.rp,
+      user: {
+        id: Uint8Array.from(atob(d.options.user.id.replace(/-/g,'+').replace(/_/g,'/')), c=>c.charCodeAt(0)),
+        name: d.options.user.name,
+        displayName: d.options.user.displayName
+      },
+      pubKeyCredParams: d.options.pubKeyCredParams,
+      timeout: d.options.timeout,
+      attestation: d.options.attestation,
+      authenticatorSelection: d.options.authenticatorSelection
+    }});
+    
+    const finish = await apiFetch('/api/auth/register/finish', {
+      method:'POST',
+      body: JSON.stringify({
+        session_id: d.session_id,
+        credential: {
+          id: cred.id,
+          rawId: btoa(String.fromCharCode(...new Uint8Array(cred.rawId))),
+          type: cred.type,
+          response: {
+            clientDataJSON: btoa(String.fromCharCode(...new Uint8Array(cred.response.clientDataJSON))),
+            attestationObject: btoa(String.fromCharCode(...new Uint8Array(cred.response.attestationObject)))
+          }
+        },
+        display_name: 'Sven'
+      })
+    });
+    if(!finish) return;
+    toast('✅ Gerät erfolgreich registriert!');
+  } catch(e) {
+    toast('❌ ' + e.message);
+  }
+}
+
 function loadBeihilfe() {
   ladeBhKarten();
 }
@@ -1124,6 +1194,49 @@ async function analysiereRechnung() {
   finally { btn.disabled=false; btn.textContent='🤖 Beihilfe berechnen'; }
 }
 
+async function analysiereFoto(input) {
+  const file = input.files[0];
+  if(!file) return;
+  
+  // Vorschau zeigen
+  const preview = document.getElementById('bh-foto-preview');
+  const img = document.getElementById('bh-foto-img');
+  const status = document.getElementById('bh-foto-status');
+  img.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  status.textContent = '🤖 KI analysiert Rechnung...';
+  status.style.color = 'var(--amber)';
+
+  const person = document.getElementById('bh-analyse-person').value;
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('person', person);
+
+  try {
+    const r = await apiFetch('/api/beihilfe/foto-analysieren', {
+      method: 'POST',
+      body: fd,
+      headers: {}  // kein Content-Type — FormData setzt es selbst
+    });
+    if(!r) return;
+    const d = await r.json();
+    
+    if(d.positionen_erkannt === 0) {
+      status.textContent = '⚠️ Keine GOÄ-Ziffern erkannt — bitte manuell eingeben';
+      status.style.color = 'var(--amber)';
+      return;
+    }
+    
+    status.textContent = `✅ ${d.positionen_erkannt || d.positionen?.length || 0} Positionen erkannt`;
+    status.style.color = 'var(--green)';
+    zeigeErgebnis(d);
+    
+  } catch(e) {
+    status.textContent = '❌ Fehler: ' + e.message;
+    status.style.color = 'var(--red)';
+  }
+}
+
 function zeigeErgebnis(d) {
   bhAktuellesErgebnis = d;
   document.getElementById('bh-ergebnis').style.display = 'block';
@@ -1155,23 +1268,40 @@ async function ladeBhAntraege() {
   if(!r) return;
   const d = await r.json();
   const offen = (d.antraege||[]).filter(a=>!a.eingereicht);
+  const eingereicht = (d.antraege||[]).filter(a=>a.eingereicht);
   const liste = document.getElementById('bh-antraege-liste');
-  if(!offen.length) { liste.innerHTML='<div style="color:var(--green);text-align:center">🎉 Keine offenen Anträge</div>'; return; }
-  liste.innerHTML = offen.map(a=>`
-    <div class="card" style="margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between">
-        <div>
-          <div style="font-weight:600">${a.titel||'Rechnung'}</div>
-          <div style="color:var(--text-dim);font-size:0.8rem">${a.person} · ${a.datum||'—'}</div>
-        </div>
-        <div style="font-weight:700;color:var(--blue)">${(a.betrag||0).toFixed(2)} €</div>
+
+  const karteHtml = (a, istOffen) => `
+    <div style="display:flex;justify-content:space-between;align-items:start;
+                padding:10px;background:var(--bg3);border:1px solid var(--border);
+                border-radius:var(--r-sm);margin-bottom:8px">
+      <div>
+        <div style="font-weight:600;font-size:0.9rem">${a.titel||'Rechnung'}</div>
+        <div style="color:var(--text-dim);font-size:0.78rem">${a.person} · ${a.datum||'—'}</div>
+        ${a.erstattung_erwartet ? `<div style="color:var(--green);font-size:0.78rem">Erstattung: ${Number(a.erstattung_erwartet).toFixed(2)} €</div>` : ''}
       </div>
-      <button onclick="markiereEingereicht(${a.id})"
-        style="margin-top:8px;width:100%;padding:7px;background:var(--bg2);border:1px solid var(--border);
-               border-radius:var(--r-sm);color:var(--green);cursor:pointer;font-size:0.85rem">
-        ✅ Als eingereicht markieren
-      </button>
-    </div>`).join('');
+      <div style="text-align:right">
+        <div style="font-weight:700;color:var(--blue)">${(a.betrag||0).toFixed(2)} €</div>
+        ${istOffen ? `<button onclick="markiereEingereicht(${a.id})"
+          style="margin-top:6px;padding:4px 8px;background:var(--bg2);border:1px solid var(--green);
+                 border-radius:var(--r-sm);color:var(--green);cursor:pointer;font-size:0.75rem">
+          ✅ Eingereicht
+        </button>` : '<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px">🏛️ eingereicht</div>'}
+      </div>
+    </div>`;
+
+  let html = '';
+  if(offen.length) {
+    html += `<div style="color:var(--amber);font-size:0.8rem;font-weight:600;margin-bottom:8px">⏳ OFFEN (${offen.length})</div>`;
+    html += offen.map(a=>karteHtml(a,true)).join('');
+  } else {
+    html += '<div style="color:var(--green);text-align:center;padding:10px">🎉 Keine offenen Anträge</div>';
+  }
+  if(eingereicht.length) {
+    html += `<div style="color:var(--text-dim);font-size:0.8rem;font-weight:600;margin:12px 0 8px">✅ EINGEREICHT (${eingereicht.length})</div>`;
+    html += eingereicht.map(a=>karteHtml(a,false)).join('');
+  }
+  liste.innerHTML = html;
 }
 
 async function markiereEingereicht(id) {
@@ -1247,5 +1377,12 @@ async function goaeSuche(q) {
 // ════════════════════════════════════════════════════════════════
 </script>
 
+<div id="settings-btn" style="position:fixed;bottom:80px;right:16px;z-index:100">
+  <button onclick="geraetHinzufuegen()" 
+    style="padding:10px 14px;background:var(--bg3);border:1px solid var(--border);
+           border-radius:var(--r-sm);color:var(--text-dim);font-size:0.8rem;cursor:pointer">
+    🔑 Gerät hinzufügen
+  </button>
+</div>
 </body>
 </html>
