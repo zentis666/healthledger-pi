@@ -439,9 +439,8 @@ async function doLogin() {
 
 // ── APP ───────────────────────────────────────────────────
 function goToApp() {
-  // Token ist in localStorage gesetzt
-  // Haupt-App laden (index.html bekommt Auth-Header via JS)
-  window.location.href = '/app#token=' + d2.token;
+  const token = localStorage.getItem('hl_token') || sessionStorage.getItem('hl_token');
+  window.location.href = '/app#token=' + (token || '');
 }
 
 // Init
