@@ -1037,9 +1037,10 @@ init();
       <!-- Hinweise -->
       <div id="bh-hinweise" style="display:none;background:rgba(251,191,36,0.1);border:1px solid var(--amber);border-radius:var(--r-sm);padding:10px;margin-bottom:10px;font-size:0.82rem;color:var(--amber)"></div>
 
-      <button class="btn-primary" style="width:100%" onclick="speichereBeihilfe()">
+      <button class="btn-primary" style="width:100%;margin-bottom:8px" onclick="speichereBeihilfe()">
         💾 Speichern & als offen markieren
       </button>
+      <button id="bh-btn-eingereicht" style="display:none;width:100%;padding:12px;background:rgba(52,211,153,0.15);border:1px solid var(--green);border-radius:var(--r-sm);color:var(--green);cursor:pointer;font-size:0.9rem;font-family:var(--sans)" onclick="markiereAktuellEingereicht()">🏛️ Antrag eingereicht — jetzt markieren
     </div>
   </div>
 
@@ -1062,6 +1063,8 @@ init();
 <script>
 // ═══ BEIHILFE ═══════════════════════════════════════════════
 let bhPersonFilter = '';
+let bhAktuellesErgebnis = null;
+let bhLetztesGespeicherteId = null;
 
 function loadBeihilfe() {
   ladeBhKarten();
@@ -1122,6 +1125,7 @@ async function analysiereRechnung() {
 }
 
 function zeigeErgebnis(d) {
+  bhAktuellesErgebnis = d;
   document.getElementById('bh-ergebnis').style.display = 'block';
   document.getElementById('bh-erg-gesamt').textContent     = (d.gesamt_rechnung||0).toFixed(2)+' €';
   document.getElementById('bh-erg-bh-faehig').textContent  = (d.gesamt_beihilfefaehig||0).toFixed(2)+' €';
@@ -1173,6 +1177,49 @@ async function ladeBhAntraege() {
 async function markiereEingereicht(id) {
   await apiFetch('/api/beihilfe/antraege/'+id+'/eingereicht',{method:'POST'});
   ladeBhKarten(); ladeBhAntraege();
+}
+
+
+async function speichereBeihilfe() {
+  if(!bhAktuellesErgebnis) return;
+  const d = bhAktuellesErgebnis;
+  const person = document.getElementById('bh-analyse-person').value;
+  const text = document.getElementById('bh-rechnungstext').value.trim();
+  const body = {
+    person: person,
+    typ: 'rechnung',
+    titel: 'Arztrechnung ' + new Date().toLocaleDateString('de-DE'),
+    betrag: d.gesamt_rechnung,
+    beschreibung: text,
+    ki_extraktion: JSON.stringify({
+      erstattung: d.erstattung,
+      beihilfefaehig: d.gesamt_beihilfefaehig,
+      positionen: d.positionen
+    })
+  };
+  try {
+    const r = await apiFetch('/api/dokumente', {method:'POST', body:JSON.stringify(body)});
+    if(!r) return;
+    const result = await r.json();
+    if(result.id) {
+      bhLetztesGespeicherteId = result.id;
+      toast('✅ Gespeichert!');
+      const btn = document.getElementById('bh-btn-eingereicht');
+      if(btn) btn.style.display = 'block';
+      ladeBhKarten();
+    }
+  } catch(e) { alert('Fehler: '+e.message); }
+}
+
+async function markiereAktuellEingereicht() {
+  if(!bhLetztesGespeicherteId) return;
+  await apiFetch('/api/beihilfe/antraege/'+bhLetztesGespeicherteId+'/eingereicht',{method:'POST'});
+  toast('🏛️ Als eingereicht markiert!');
+  const btn = document.getElementById('bh-btn-eingereicht');
+  if(btn) btn.style.display = 'none';
+  bhLetztesGespeicherteId = null;
+  ladeBhKarten();
+  bhTab('antraege');
 }
 
 let goaeTimer = null;
