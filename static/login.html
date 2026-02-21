@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1e">
+<title>🏥 HealthLedger</title>
+<style>
+:root {
+  --bg:#0a0f1e;--bg2:#111827;--bg3:#1a2235;--border:#1e2d47;
+  --green:#34d399;--green-dim:#10b981;--green-glow:rgba(52,211,153,.12);
+  --red:#f87171;--amber:#fbbf24;--text:#e2e8f0;--text-dim:#64748b;
+  --sans:'DM Sans',system-ui,sans-serif;--mono:'DM Mono',monospace;
+  --r:14px;--r-sm:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;overflow:hidden}
+/* SCREEN CONTAINER */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .35s ease}
+.screen.active{opacity:1;pointer-events:all}
+/* LOGO */
+.logo-wrap{text-align:center;margin-bottom:40px}
+.logo-icon{font-size:56px;display:block;margin-bottom:12px}
+.logo-title{font-family:var(--mono);font-size:22px;font-weight:500;letter-spacing:.05em}
+.logo-sub{font-size:12px;color:var(--green-dim);margin-top:6px;letter-spacing:.08em;text-transform:uppercase}
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:28px;width:100%;max-width:380px}
+.card-title{font-size:17px;font-weight:600;margin-bottom:6px}
+.card-sub{font-size:13px;color:var(--text-dim);line-height:1.5;margin-bottom:24px}
+/* YUBIKEY ANIMATION */
+.key-anim{width:120px;height:120px;margin:0 auto 28px;position:relative;display:flex;align-items:center;justify-content:center}
+.key-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--border);animation:spin 8s linear infinite}
+.key-ring.r2{border-color:transparent;border-top-color:var(--green-dim);animation-duration:3s}
+.key-ring.r3{width:80%;height:80%;inset:10%;border-color:transparent;border-bottom-color:var(--green);animation-duration:2s;animation-direction:reverse}
+.key-icon{font-size:44px;z-index:1}
+.key-glow{position:absolute;inset:20%;border-radius:50%;background:var(--green-glow);animation:glow 2s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glow{0%,100%{opacity:.3;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}
+/* WAITING STATE */
+.key-anim.waiting .key-ring.r2{border-top-color:var(--amber);animation-duration:1s}
+.key-anim.waiting .key-ring.r3{border-bottom-color:var(--amber)}
+.key-anim.waiting .key-glow{background:rgba(251,191,36,.15)}
+/* SUCCESS STATE */
+.key-anim.success .key-ring.r2{border-top-color:var(--green);border-color:var(--green)}
+.key-anim.success .key-ring.r3{border-color:var(--green)}
+.key-anim.success .key-glow{background:rgba(52,211,153,.25)}
+/* BUTTON */
+.btn{width:100%;padding:14px;background:var(--green-dim);color:var(--bg);border:none;border-radius:var(--r-sm);font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;font-family:var(--sans);letter-spacing:.01em}
+.btn:hover:not(:disabled){background:var(--green)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-sec{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn-sec:hover:not(:disabled){border-color:var(--green-dim)}
+/* INPUT */
+.input-wrap{margin-bottom:16px}
+.input-label{font-size:11px;color:var(--text-dim);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:block}
+.input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 14px;color:var(--text);font-size:14px;font-family:var(--sans);outline:none;transition:border-color .2s}
+.input:focus{border-color:var(--green-dim)}
+/* STATUS MSG */
+.status-msg{text-align:center;font-size:13px;padding:10px 14px;border-radius:var(--r-sm);margin-bottom:16px;display:none}
+.status-msg.show{display:block}
+.status-msg.ok{background:rgba(52,211,153,.1);color:var(--green);border:1px solid rgba(52,211,153,.3)}
+.status-msg.err{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.3)}
+.status-msg.info{background:rgba(96,165,250,.1);color:#60a5fa;border:1px solid rgba(96,165,250,.3)}
+/* STEPS */
+.steps{display:flex;gap:6px;margin-bottom:20px;justify-content:center}
+.step{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .3s}
+.step.active{background:var(--green);box-shadow:0 0 8px var(--green)}
+.step.done{background:var(--green-dim)}
+/* DIVIDER */
+.divider{height:1px;background:var(--border);margin:20px 0}
+/* NFC HINT */
+.nfc-hint{display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg3);border-radius:var(--r-sm);margin-top:16px;font-size:12px;color:var(--text-dim)}
+.nfc-hint .nh-icon{font-size:20px;flex-shrink:0}
+/* LOADED INDICATOR */
+#loaded-bar{position:fixed;top:0;left:0;height:2px;background:var(--green);width:0;transition:width .3s;z-index:999}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="loaded-bar"></div>
+
+<!-- SCREEN: LOADING -->
+<div class="screen active" id="s-loading">
+  <div class="logo-wrap">
+    <span class="logo-icon">🏥</span>
+    <div class="logo-title">HealthLedger</div>
+    <div class="logo-sub">Democratize Health</div>
+  </div>
+  <div style="color:var(--text-dim);font-size:13px;font-family:var(--mono)">Initialisiere…</div>
+</div>
+
+<!-- SCREEN: SETUP (erster YubiKey registrieren) -->
+<div class="screen" id="s-setup">
+  <div class="logo-wrap">
+    <span class="logo-icon">🔐</span>
+    <div class="logo-title">Ersteinrichtung</div>
+    <div class="logo-sub">YubiKey registrieren</div>
+  </div>
+  <div class="card">
+    <div class="steps">
+      <div class="step active" id="setup-s1"></div>
+      <div class="step" id="setup-s2"></div>
+      <div class="step" id="setup-s3"></div>
+    </div>
+
+    <!-- Step 1: Name eingeben -->
+    <div id="setup-step1">
+      <div class="card-title">Hallo! Wer bist du?</div>
+      <div class="card-sub">Gib deinen Namen ein. Später kannst du weitere Familienmitglieder hinzufügen.</div>
+      <div class="input-wrap">
+        <label class="input-label">Dein Name</label>
+        <input class="input" id="setup-name" type="text" placeholder="z.B. Sven" value="Sven" autocomplete="name">
+      </div>
+      <div class="input-wrap">
+        <label class="input-label">Benutzername (für Login)</label>
+        <input class="input" id="setup-username" type="text" placeholder="z.B. sven" value="sven" autocomplete="username">
+      </div>
+      <button class="btn" onclick="setupStep2()">Weiter →</button>
+    </div>
+
+    <!-- Step 2: YubiKey antippen -->
+    <div id="setup-step2" style="display:none">
+      <div class="key-anim" id="setup-key-anim">
+        <div class="key-ring"></div>
+        <div class="key-ring r2"></div>
+        <div class="key-ring r3"></div>
+        <div class="key-glow"></div>
+        <div class="key-icon">🔑</div>
+      </div>
+      <div class="card-title" style="text-align:center">YubiKey antippen</div>
+      <div class="card-sub" style="text-align:center">Stecke deinen YubiKey ein und tippe ihn an.<br>Beim Mac: USB-C Key direkt berühren.</div>
+      <div class="status-msg" id="setup-status"></div>
+      <button class="btn" id="setup-tap-btn" onclick="setupRegister()">🔑 Jetzt registrieren</button>
+      <div class="nfc-hint">
+        <div class="nh-icon">📱</div>
+        <div>iPhone/Android: YubiKey 5 NFC ans Gerät halten — NFC-Tap wird automatisch erkannt.</div>
+      </div>
+    </div>
+
+    <!-- Step 3: Erfolg -->
+    <div id="setup-step3" style="display:none">
+      <div class="key-anim success" id="setup-key-done">
+        <div class="key-ring"></div>
+        <div class="key-ring r2"></div>
+        <div class="key-ring r3"></div>
+        <div class="key-glow"></div>
+        <div class="key-icon">✅</div>
+      </div>
+      <div class="card-title" style="text-align:center">YubiKey registriert!</div>
+      <div class="card-sub" style="text-align:center" id="setup-success-msg">Dein YubiKey ist jetzt mit HealthLedger verknüpft.</div>
+      <button class="btn" onclick="goToApp()">🏥 HealthLedger öffnen →</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: LOGIN -->
+<div class="screen" id="s-login">
+  <div class="logo-wrap">
+    <span class="logo-icon">🏥</span>
+    <div class="logo-title">HealthLedger</div>
+    <div class="logo-sub">Democratize Health</div>
+  </div>
+  <div class="card">
+    <div class="key-anim" id="login-key-anim">
+      <div class="key-ring"></div>
+      <div class="key-ring r2"></div>
+      <div class="key-ring r3"></div>
+      <div class="key-glow"></div>
+      <div class="key-icon">🔑</div>
+    </div>
+    <div class="card-title" style="text-align:center">Mit YubiKey einloggen</div>
+    <div class="card-sub" style="text-align:center">Stecke deinen YubiKey ein und tippe ihn an.<br><span id="login-user-hint" style="color:var(--green-dim)"></span></div>
+    <div class="status-msg" id="login-status"></div>
+    <button class="btn" id="login-btn" onclick="doLogin()">🔑 YubiKey antippen</button>
+    <div class="nfc-hint" style="margin-top:12px">
+      <div class="nh-icon">📱</div>
+      <div>iPhone: YubiKey 5 NFC ans obere Drittel halten.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────
+const API = '';  // same origin
+let setupSessionId = null;
+let loginSessionId = null;
+
+// ── SCREEN MGMT ───────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showStatus(elId, msg, type='info') {
+  const el = document.getElementById(elId);
+  el.textContent = msg;
+  el.className = `status-msg show ${type}`;
+}
+
+function hideStatus(elId) {
+  document.getElementById(elId).className = 'status-msg';
+}
+
+// ── INIT ──────────────────────────────────────────────────
+async function init() {
+  const bar = document.getElementById('loaded-bar');
+  bar.style.width = '40%';
+
+  // Gespeicherter Token vorhanden?
+  const token = localStorage.getItem('hl_token');
+  if (token) {
+    bar.style.width = '70%';
+    try {
+      const r = await fetch('/api/dashboard', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (r.ok) {
+        bar.style.width = '100%';
+        setTimeout(() => goToApp(), 200);
+        return;
+      }
+    } catch {}
+    localStorage.removeItem('hl_token');
+  }
+
+  bar.style.width = '80%';
+
+  // Auth-Status prüfen
+  try {
+    const r = await fetch('/api/auth/status');
+    const d = await r.json();
+    bar.style.width = '100%';
+
+    if (d.setup_mode || !d.registriert) {
+      showScreen('s-setup');
+    } else {
+      // Login-Hint
+      if (d.users && d.users.length > 0) {
+        const names = d.users.map(u => u.display_name || u.username).join(', ');
+        document.getElementById('login-user-hint').textContent = `Registriert: ${names}`;
+      }
+      showScreen('s-login');
+    }
+  } catch(e) {
+    bar.style.width = '100%';
+    showScreen('s-setup');
+  }
+}
+
+// ── SETUP ─────────────────────────────────────────────────
+function setupStep2() {
+  const name = document.getElementById('setup-name').value.trim();
+  const username = document.getElementById('setup-username').value.trim().toLowerCase();
+  if (!name || !username) {
+    alert('Bitte Name und Benutzername eingeben');
+    return;
+  }
+  document.getElementById('setup-step1').style.display = 'none';
+  document.getElementById('setup-step2').style.display = 'block';
+  document.getElementById('setup-s1').className = 'step done';
+  document.getElementById('setup-s2').className = 'step active';
+}
+
+// Base64 Helpers für WebAuthn
+function b64ToBuffer(b64) {
+  const bin = atob(b64.replace(/-/g,'+').replace(/_/g,'/'));
+  const buf = new Uint8Array(bin.length);
+  for (let i=0; i<bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf.buffer;
+}
+
+function bufferToB64(buf) {
+  const bytes = new Uint8Array(buf instanceof ArrayBuffer ? buf : buf.buffer || buf);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+
+function bufferToB64url(buf) {
+  return bufferToB64(buf).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+
+async function setupRegister() {
+  const name     = document.getElementById('setup-name').value.trim();
+  const username = document.getElementById('setup-username').value.trim().toLowerCase();
+  const btn      = document.getElementById('setup-tap-btn');
+  const anim     = document.getElementById('setup-key-anim');
+
+  btn.disabled = true;
+  anim.classList.add('waiting');
+  showStatus('setup-status', '⏳ Warte auf YubiKey…', 'info');
+
+  try {
+    // 1) Challenge holen
+    const r1 = await fetch('/api/auth/register/begin', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ username, display_name: name })
+    });
+    const d1 = await r1.json();
+    if (!r1.ok) throw new Error(d1.detail || 'Server-Fehler');
+
+    setupSessionId = d1.session_id;
+    const opts = d1.options;
+
+    // 2) WebAuthn Create
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge:  b64ToBuffer(opts.challenge),
+        rp:         opts.rp,
+        user: {
+          id:          b64ToBuffer(opts.user.id),
+          name:        opts.user.name,
+          displayName: opts.user.displayName,
+        },
+        pubKeyCredParams: opts.pubKeyCredParams,
+        timeout:     opts.timeout,
+        attestation: opts.attestation,
+        authenticatorSelection: opts.authenticatorSelection,
+      }
+    });
+
+    showStatus('setup-status', '✅ YubiKey erkannt — wird registriert…', 'ok');
+
+    // 3) Credential an Server senden
+    const credData = {
+      id:   credential.id,
+      type: credential.type,
+      response: {
+        attestationObject: bufferToB64(credential.response.attestationObject),
+        clientDataJSON:    bufferToB64(credential.response.clientDataJSON),
+      }
+    };
+
+    const r2 = await fetch('/api/auth/register/finish', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ session_id: setupSessionId, credential: credData })
+    });
+    const d2 = await r2.json();
+    if (!r2.ok) throw new Error(d2.detail || 'Registrierung fehlgeschlagen');
+
+    // Erfolg!
+    anim.classList.remove('waiting');
+    document.getElementById('setup-step2').style.display = 'none';
+    document.getElementById('setup-step3').style.display = 'block';
+    document.getElementById('setup-s2').className = 'step done';
+    document.getElementById('setup-s3').className = 'step active';
+    document.getElementById('setup-success-msg').textContent =
+      `${name}, dein YubiKey ist registriert. Du kannst dich ab jetzt damit einloggen.`;
+
+  } catch(err) {
+    anim.classList.remove('waiting');
+    btn.disabled = false;
+    const msg = err.name === 'NotAllowedError'
+      ? '⚠️ Abgebrochen oder Timeout. Nochmal versuchen.'
+      : `⚠️ ${err.message}`;
+    showStatus('setup-status', msg, 'err');
+  }
+}
+
+// ── LOGIN ─────────────────────────────────────────────────
+async function doLogin() {
+  const btn  = document.getElementById('login-btn');
+  const anim = document.getElementById('login-key-anim');
+
+  btn.disabled = true;
+  anim.classList.add('waiting');
+  showStatus('login-status', '⏳ Warte auf YubiKey-Tap…', 'info');
+
+  try {
+    // 1) Challenge holen
+    const r1 = await fetch('/api/auth/login/begin', { method: 'POST' });
+    const d1 = await r1.json();
+    loginSessionId = d1.session_id;
+    const opts = d1.options;
+
+    // 2) WebAuthn Get
+    const allowCreds = (opts.allowCredentials || []).map(c => ({
+      type: c.type,
+      id:   b64ToBuffer(c.id),
+      transports: c.transports || ['usb','nfc'],
+    }));
+
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge:        b64ToBuffer(opts.challenge),
+        rpId:             opts.rpId || window.location.hostname,
+        allowCredentials: allowCreds,
+        userVerification: opts.userVerification,
+        timeout:          opts.timeout,
+      }
+    });
+
+    showStatus('login-status', '✅ YubiKey erkannt — verifiziere…', 'ok');
+
+    // 3) Assertion an Server
+    const assertData = {
+      id:   assertion.id,
+      type: assertion.type,
+      response: {
+        authenticatorData: bufferToB64(assertion.response.authenticatorData),
+        clientDataJSON:    bufferToB64(assertion.response.clientDataJSON),
+        signature:         bufferToB64(assertion.response.signature),
+        userHandle: assertion.response.userHandle
+          ? bufferToB64(assertion.response.userHandle) : null,
+      }
+    };
+
+    const r2 = await fetch('/api/auth/login/finish', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ session_id: loginSessionId, credential: assertData })
+    });
+    const d2 = await r2.json();
+    if (!r2.ok) throw new Error(d2.detail || 'Login fehlgeschlagen');
+
+    // Token speichern
+    localStorage.setItem('hl_token', d2.token);
+    sessionStorage.setItem('hl_token', d2.token);
+    localStorage.setItem('hl_user',  d2.display_name || d2.username);
+
+    anim.classList.remove('waiting');
+    anim.classList.add('success');
+    showStatus('login-status', `✅ Willkommen, ${d2.display_name}!`, 'ok');
+
+    setTimeout(() => goToApp(), 800);
+
+  } catch(err) {
+    anim.classList.remove('waiting');
+    btn.disabled = false;
+    const msg = err.name === 'NotAllowedError'
+      ? '⚠️ Abgebrochen oder Timeout. Nochmal versuchen.'
+      : `⚠️ ${err.message}`;
+    showStatus('login-status', msg, 'err');
+  }
+}
+
+// ── APP ───────────────────────────────────────────────────
+function goToApp() {
+  // Token ist in localStorage gesetzt
+  // Haupt-App laden (index.html bekommt Auth-Header via JS)
+  window.location.href = '/app#token=' + d2.token;
+}
+
+// Init
+init();
+</script>
+</body>
+</html>
