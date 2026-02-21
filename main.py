@@ -946,10 +946,7 @@ async def index():
 async def app_page():
     return FileResponse(STATIC_DIR / "index.html")
 
-@app.get("/{path:path}")
-async def spa_fallback(path: str):
-    f = STATIC_DIR / "index.html"
-    if f.exists(): return FileResponse(f)
+# [catch-all ans Ende verschoben]
     raise HTTPException(404)
 
 if __name__ == "__main__":
@@ -1053,3 +1050,27 @@ async def beihilfe_eingereicht(dok_id: int, user: dict = Depends(get_current_use
         db.execute("UPDATE dokumente SET eingereicht_beihilfe=1 WHERE id=?", (dok_id,))
         db.commit()
     return {"ok":True}
+
+@app.post("/api/dokumente")
+async def create_dokument(request: Request, user: dict = Depends(get_current_user)):
+    data = await request.json()
+    with get_db() as db:
+        cur = db.execute("""
+            INSERT INTO dokumente (person, typ, titel, betrag, beschreibung, ki_extraktion, erstellt_am)
+            VALUES (?,?,?,?,?,?,?)
+        """, (
+            data.get("person",""),
+            data.get("typ","rechnung"),
+            data.get("titel",""),
+            data.get("betrag",0),
+            data.get("beschreibung",""),
+            data.get("ki_extraktion","{}"),
+            datetime.utcnow().isoformat()
+        ))
+        db.commit()
+    return {"id": cur.lastrowid, "ok": True}
+
+@app.get("/{path:path}")
+async def spa_fallback(path: str):
+    f = STATIC_DIR / "index.html"
+    if f.exists(): return FileResponse(f)
