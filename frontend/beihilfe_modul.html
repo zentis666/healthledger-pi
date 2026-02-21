@@ -1,0 +1,405 @@
+<!-- HealthLedger — Beihilfe-Modul UI -->
+<!-- Einzufügen in index.html als neuer Tab -->
+
+<!-- NAV-BUTTON (in bestehende Bottom-Nav einfügen) -->
+<!--
+<button class="nav-btn" onclick="showSection('beihilfe')" id="nav-beihilfe">
+    <span>🏛️</span><span>Beihilfe</span>
+</button>
+-->
+
+<!-- BEIHILFE SECTION -->
+<div id="section-beihilfe" class="section" style="display:none">
+  <div class="section-header">
+    <h2>🏛️ Beihilfe</h2>
+    <p class="subtitle">Automatische Antragsberechnung nach BBhV (Bund)</p>
+  </div>
+
+  <!-- ÜBERSICHT KARTEN -->
+  <div class="bh-karten" id="bh-karten">
+    <div class="bh-karte bh-offen">
+      <div class="bh-karte-zahl" id="bh-anzahl-offen">—</div>
+      <div class="bh-karte-label">Offen</div>
+      <div class="bh-karte-summe" id="bh-summe-offen">—</div>
+    </div>
+    <div class="bh-karte bh-eingereicht">
+      <div class="bh-karte-zahl" id="bh-anzahl-eingereicht">—</div>
+      <div class="bh-karte-label">Eingereicht</div>
+    </div>
+  </div>
+
+  <!-- PERSON AUSWÄHLEN -->
+  <div class="form-group">
+    <label>Person</label>
+    <select id="bh-person" onchange="ladeBhUebersicht()">
+      <option value="">Alle</option>
+      <option value="Sven">Sven</option>
+      <option value="Heidi">Heidi</option>
+      <option value="Julian">Julian</option>
+      <option value="Theresa">Theresa</option>
+    </select>
+  </div>
+
+  <!-- TABS: ANALYSE / ÜBERSICHT / GOÄ-SUCHE -->
+  <div class="bh-tabs">
+    <button class="bh-tab active" onclick="bhTab('analyse')">📄 Rechnung analysieren</button>
+    <button class="bh-tab" onclick="bhTab('uebersicht')">📋 Offene Anträge</button>
+    <button class="bh-tab" onclick="bhTab('goae')">🔍 GOÄ-Suche</button>
+  </div>
+
+  <!-- TAB: ANALYSE -->
+  <div id="bh-tab-analyse" class="bh-tab-content">
+    <h3>Rechnung analysieren</h3>
+    <p style="color:var(--text-secondary);font-size:0.9em">
+      Lade eine Arztrechnung hoch oder füge den Text ein.
+      Die KI extrahiert die GOÄ-Positionen und berechnet die Beihilfe automatisch.
+    </p>
+
+    <div class="form-group">
+      <label>Rechnungstext (oder aus Dokument)</label>
+      <textarea id="bh-rechnungstext" rows="6"
+        placeholder="Rechnungstext hier einfügen — oder Dokument-ID angeben...
+Beispiel:
+GOÄ 3 × 2,3 = 20,24 €
+GOÄ 250 × 1,8 = 5,23 €
+GOÄ 3561 × 1,0 = 15,15 €"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label>Dokument-ID (optional)</label>
+        <input type="number" id="bh-dokument-id" placeholder="z.B. 42">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label>Person</label>
+        <select id="bh-analyse-person">
+          <option value="Sven">Sven (70%)</option>
+          <option value="Heidi">Heidi (70%)</option>
+          <option value="Julian">Julian (80%)</option>
+          <option value="Theresa">Theresa (80%)</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="analysiereRechnung()">
+      🤖 Rechnung analysieren
+    </button>
+
+    <!-- ERGEBNIS -->
+    <div id="bh-ergebnis" style="display:none;margin-top:1.5rem">
+      <div class="bh-ergebnis-header">
+        <h3>Berechnungsergebnis</h3>
+      </div>
+
+      <!-- ZUSAMMENFASSUNG -->
+      <div class="bh-summary">
+        <div class="bh-summary-item">
+          <span>Gesamtrechnung</span>
+          <strong id="bh-erg-gesamt">—</strong>
+        </div>
+        <div class="bh-summary-item highlight">
+          <span>Beihilfefähig</span>
+          <strong id="bh-erg-bh-faehig">—</strong>
+        </div>
+        <div class="bh-summary-item success">
+          <span>Erstattung (<span id="bh-erg-satz">—</span>%)</span>
+          <strong id="bh-erg-erstattung">—</strong>
+        </div>
+        <div class="bh-summary-item muted">
+          <span>Eigenanteil</span>
+          <strong id="bh-erg-eigenanteil">—</strong>
+        </div>
+      </div>
+
+      <!-- POSITIONEN -->
+      <div class="bh-positionen" id="bh-positionen-liste"></div>
+
+      <!-- HINWEISE -->
+      <div id="bh-hinweise" style="display:none" class="bh-hinweise"></div>
+
+      <!-- AKTIONEN -->
+      <div class="bh-aktionen">
+        <button class="btn-primary" onclick="speichereAnalyse()">
+          💾 Speichern & als offen markieren
+        </button>
+        <button class="btn-secondary" onclick="druckeAnalyse()">
+          🖨️ Drucken / PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ÜBERSICHT -->
+  <div id="bh-tab-uebersicht" class="bh-tab-content" style="display:none">
+    <h3>Offene Beihilfe-Anträge</h3>
+    <div id="bh-antraege-liste">
+      <p style="color:var(--text-secondary)">Wird geladen...</p>
+    </div>
+  </div>
+
+  <!-- TAB: GOÄ-SUCHE -->
+  <div id="bh-tab-goae" class="bh-tab-content" style="display:none">
+    <h3>GOÄ-Datenbank durchsuchen</h3>
+    <div class="form-group">
+      <input type="text" id="goae-suche-input"
+        placeholder="Ziffer oder Begriff suchen — z.B. '3561' oder 'Schilddrüse'"
+        oninput="goaeSuche(this.value)">
+    </div>
+    <div id="goae-ergebnisse" class="goae-tabelle">
+      <p style="color:var(--text-secondary)">Suchbegriff eingeben...</p>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ── BEIHILFE STYLES ─────────────────────────────────────────── */
+.bh-karten { display:flex; gap:1rem; margin-bottom:1.5rem; }
+.bh-karte {
+  flex:1; background:var(--surface); border-radius:12px;
+  padding:1.2rem; text-align:center; border:1px solid var(--border);
+}
+.bh-karte-zahl { font-size:2rem; font-weight:700; }
+.bh-karte-label { color:var(--text-secondary); font-size:0.85rem; }
+.bh-karte-summe { font-size:0.9rem; color:var(--text-secondary); margin-top:4px; }
+.bh-offen .bh-karte-zahl { color:#f59e0b; }
+.bh-eingereicht .bh-karte-zahl { color:#10b981; }
+
+.bh-tabs { display:flex; gap:0.5rem; margin:1rem 0; flex-wrap:wrap; }
+.bh-tab {
+  padding:0.5rem 1rem; border-radius:8px; border:1px solid var(--border);
+  background:var(--surface); color:var(--text-secondary);
+  cursor:pointer; font-size:0.9rem; transition:all .2s;
+}
+.bh-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+.bh-tab-content { margin-top:1rem; }
+
+.bh-summary {
+  background:var(--surface); border-radius:12px;
+  border:1px solid var(--border); overflow:hidden; margin:1rem 0;
+}
+.bh-summary-item {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:0.75rem 1rem; border-bottom:1px solid var(--border);
+}
+.bh-summary-item:last-child { border-bottom:none; }
+.bh-summary-item.highlight { background:rgba(99,102,241,0.08); }
+.bh-summary-item.success { background:rgba(16,185,129,0.1); }
+.bh-summary-item.success strong { color:#10b981; font-size:1.1rem; }
+.bh-summary-item.muted { opacity:0.7; }
+
+.bh-positionen { margin:1rem 0; }
+.bh-position {
+  display:grid; grid-template-columns:80px 1fr 80px 80px;
+  gap:0.5rem; align-items:center;
+  padding:0.6rem 0.8rem; border-radius:8px;
+  background:var(--surface); margin-bottom:0.4rem;
+  border:1px solid var(--border); font-size:0.88rem;
+}
+.bh-position.nicht-bh { opacity:0.5; background:rgba(239,68,68,0.05); }
+.bh-position.hinweis-pos { border-color:#f59e0b; }
+.bh-pos-ziffer { font-family:monospace; font-weight:600; color:var(--primary); }
+.bh-pos-betrag { text-align:right; }
+.bh-pos-erstattet { text-align:right; font-weight:600; color:#10b981; }
+.bh-pos-erstattet.null { color:var(--text-secondary); }
+.bh-pos-hinweis {
+  grid-column:1/-1; font-size:0.8rem;
+  color:#f59e0b; padding-top:0.2rem;
+}
+
+.bh-hinweise {
+  background:rgba(245,158,11,0.1); border:1px solid #f59e0b;
+  border-radius:8px; padding:0.8rem 1rem; margin:0.5rem 0; font-size:0.88rem;
+}
+.bh-aktionen { display:flex; gap:0.75rem; margin-top:1rem; flex-wrap:wrap; }
+
+/* Antrag-Karte */
+.bh-antrag-karte {
+  background:var(--surface); border-radius:10px;
+  border:1px solid var(--border); padding:1rem; margin-bottom:0.75rem;
+}
+.bh-antrag-header {
+  display:flex; justify-content:space-between; align-items:flex-start;
+}
+.bh-antrag-titel { font-weight:600; }
+.bh-antrag-betrag { font-size:1.1rem; font-weight:700; color:var(--primary); }
+.bh-antrag-meta { color:var(--text-secondary); font-size:0.85rem; margin:0.3rem 0; }
+.bh-antrag-actions { display:flex; gap:0.5rem; margin-top:0.75rem; }
+
+/* GOÄ Tabelle */
+.goae-tabelle { margin-top:0.5rem; }
+.goae-zeile {
+  display:grid; grid-template-columns:70px 1fr 70px 70px 40px;
+  gap:0.5rem; align-items:center;
+  padding:0.5rem 0.75rem; border-radius:8px;
+  background:var(--surface); margin-bottom:0.3rem;
+  border:1px solid var(--border); font-size:0.85rem;
+}
+.goae-ziffer { font-family:monospace; font-weight:600; color:var(--primary); }
+.goae-bh { text-align:center; }
+.goae-preis { text-align:right; color:var(--text-secondary); }
+</style>
+
+<script>
+// ── BEIHILFE JAVASCRIPT ───────────────────────────────────────
+let bhAktuellesErgebnis = null;
+
+function bhTab(tab) {
+  document.querySelectorAll('.bh-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.bh-tab-content').forEach(c => c.style.display = 'none');
+  event.target.classList.add('active');
+  document.getElementById(`bh-tab-${tab}`).style.display = 'block';
+  if (tab === 'uebersicht') ladeBhUebersicht();
+}
+
+async function ladeBhUebersicht() {
+  const person = document.getElementById('bh-person')?.value || '';
+  try {
+    const r = await fetch(`/api/beihilfe/antraege?person=${encodeURIComponent(person)}`);
+    const d = await r.json();
+    document.getElementById('bh-anzahl-offen').textContent = d.offen;
+    document.getElementById('bh-summe-offen').textContent = `${d.summe_offen?.toFixed(2)} €`;
+    document.getElementById('bh-anzahl-eingereicht').textContent = d.eingereicht;
+
+    const liste = document.getElementById('bh-antraege-liste');
+    const offene = d.antraege?.filter(a => !a.eingereicht) || [];
+    if (!offene.length) {
+      liste.innerHTML = '<p style="color:var(--text-secondary)">Keine offenen Anträge 🎉</p>';
+      return;
+    }
+    liste.innerHTML = offene.map(a => `
+      <div class="bh-antrag-karte">
+        <div class="bh-antrag-header">
+          <div>
+            <div class="bh-antrag-titel">${a.titel || 'Rechnung'}</div>
+            <div class="bh-antrag-meta">
+              ${a.person} · ${a.aussteller || '—'} · ${a.datum || '—'}
+            </div>
+          </div>
+          <div class="bh-antrag-betrag">${(a.betrag||0).toFixed(2)} €</div>
+        </div>
+        ${a.erstattung_erwartet ? `<div style="color:#10b981;font-size:0.9rem;margin-top:0.3rem">
+          Erstattung ca. ${a.erstattung_erwartet.toFixed(2)} € erwartet</div>` : ''}
+        <div class="bh-antrag-actions">
+          <button class="btn-secondary" style="font-size:0.85rem;padding:0.4rem 0.8rem"
+            onclick="markiereEingereicht(${a.id})">✅ Als eingereicht markieren</button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+async function analysiereRechnung() {
+  const person  = document.getElementById('bh-analyse-person').value;
+  const text    = document.getElementById('bh-rechnungstext').value;
+  const dokId   = document.getElementById('bh-dokument-id').value;
+  const btn     = event.target;
+  btn.disabled  = true;
+  btn.textContent = '🤖 Analysiere...';
+
+  try {
+    const r = await fetch('/api/beihilfe/rechnung/analysieren', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        freitext:    text,
+        dokument_id: dokId ? parseInt(dokId) : null,
+        person:      person
+      })
+    });
+    const d = await r.json();
+    bhAktuellesErgebnis = d;
+    zeigeErgebnis(d);
+  } catch(e) {
+    alert('Fehler: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 Rechnung analysieren';
+  }
+}
+
+function zeigeErgebnis(d) {
+  document.getElementById('bh-ergebnis').style.display = 'block';
+  document.getElementById('bh-erg-gesamt').textContent      = `${d.gesamt_rechnung?.toFixed(2)} €`;
+  document.getElementById('bh-erg-bh-faehig').textContent   = `${d.gesamt_beihilfefaehig?.toFixed(2)} €`;
+  document.getElementById('bh-erg-erstattung').textContent  = `${d.erstattung?.toFixed(2)} €`;
+  document.getElementById('bh-erg-eigenanteil').textContent = `${d.eigenanteil?.toFixed(2)} €`;
+  document.getElementById('bh-erg-satz').textContent        = d.beihilfesatz_prozent || '—';
+
+  const liste = document.getElementById('bh-positionen-liste');
+  liste.innerHTML = (d.positionen || []).map(pos => `
+    <div class="bh-position ${!pos.beihilfefaehig ? 'nicht-bh' : ''} ${pos.hinweis ? 'hinweis-pos' : ''}">
+      <span class="bh-pos-ziffer">GOÄ ${pos.ziffer || '?'}</span>
+      <span>${pos.beschreibung_goae || pos.beschreibung_rechnung || '—'}</span>
+      <span class="bh-pos-betrag">${(pos.betrag||0).toFixed(2)} €</span>
+      <span class="bh-pos-erstattet ${!pos.beihilfefaehig||!pos.beihilfefaehiger_betrag ? 'null' : ''}">
+        ${pos.beihilfefaehig ? (pos.beihilfefaehiger_betrag||0).toFixed(2)+' €' : '❌'}
+      </span>
+      ${pos.hinweis ? `<div class="bh-pos-hinweis">⚠️ ${pos.hinweis}</div>` : '<span></span>'}
+    </div>`).join('');
+
+  const hinweise = d.hinweise || [];
+  const hwDiv = document.getElementById('bh-hinweise');
+  if (hinweise.length) {
+    hwDiv.style.display = 'block';
+    hwDiv.innerHTML = '<strong>⚠️ Hinweise:</strong><br>' +
+      hinweise.map(h => `• ${h}`).join('<br>');
+  } else {
+    hwDiv.style.display = 'none';
+  }
+
+  document.getElementById('bh-ergebnis').scrollIntoView({behavior:'smooth'});
+}
+
+async function markiereEingereicht(dokId) {
+  await fetch(`/api/beihilfe/antraege/${dokId}/eingereicht`, {method:'POST'});
+  ladeBhUebersicht();
+}
+
+let goaeSucheTimer = null;
+async function goaeSuche(q) {
+  clearTimeout(goaeSucheTimer);
+  goaeSucheTimer = setTimeout(async () => {
+    if (!q.trim()) {
+      document.getElementById('goae-ergebnisse').innerHTML =
+        '<p style="color:var(--text-secondary)">Suchbegriff eingeben...</p>';
+      return;
+    }
+    const r = await fetch(`/api/beihilfe/goae/suche?q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    const container = document.getElementById('goae-ergebnisse');
+    if (!d.ziffern?.length) {
+      container.innerHTML = '<p style="color:var(--text-secondary)">Keine Treffer</p>';
+      return;
+    }
+    container.innerHTML = `
+      <div class="goae-zeile" style="font-weight:600;opacity:0.7">
+        <span>Ziffer</span><span>Beschreibung</span>
+        <span style="text-align:right">1-fach</span>
+        <span style="text-align:right">2,3-fach</span>
+        <span style="text-align:center">BH</span>
+      </div>` +
+      d.ziffern.map(z => `
+      <div class="goae-zeile">
+        <span class="goae-ziffer">${z.ziffer}</span>
+        <span>${z.beschreibung}</span>
+        <span class="goae-preis">${z.einfachsatz?.toFixed(2)} €</span>
+        <span class="goae-preis">${z.faktor_2_3?.toFixed(2)} €</span>
+        <span class="goae-bh">${z.beihilfefaehig_bund ? '✅' : '❌'}</span>
+      </div>`).join('');
+  }, 300);
+}
+
+function druckeAnalyse() { window.print(); }
+
+async function speichereAnalyse() {
+  if (!bhAktuellesErgebnis) return;
+  // Speichert Ergebnis in ki_extraktion des Dokuments
+  alert('💾 Gespeichert! (vollständige Implementierung folgt)');
+}
+
+// Übersicht beim ersten Laden
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(ladeBhUebersicht, 500);
+});
+</script>
